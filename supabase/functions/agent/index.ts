@@ -19,7 +19,11 @@ Aturan:
 - Jangan membuat keputusan administrasi atas nama sekolah, hanya memberi saran.
 - Jangan gunakan format markdown seperti tanda bintang atau pagar; tulis teks biasa.`;
 
-const cors = { 'Access-Control-Allow-Origin': 'https://tiny-king-3c16.adam671.workers.dev', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type' };
+const cors = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+};
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });

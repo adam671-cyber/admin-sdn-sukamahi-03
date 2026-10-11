@@ -29,25 +29,14 @@ async function muatProfil() {
     return null;
   }
 }
-async function cekStafLama() {
-  try {
-    const { data } = await sb.from('staf').select('user_id').eq('user_id', session.user.id).single();
-    return !!data;
-  } catch { return false; }
-}
 async function pastikanProfil() {
-  let p = await muatProfil();
+  const p = await muatProfil();
   if (p && p.is_active) return p;
-  if (await cekStafLama()) {
-    const payload = { id: session.user.id, email: session.user.email, nama: (p && p.nama) || session.user.email, role: 'admin', is_active: true };
-    try {
-      const { data } = await sb.from('profiles').upsert(payload, { onConflict: 'id' }).select().single();
-      if (data) return data;
-    } catch (e) { console.warn('Gagal sinkron profil admin:', e.message); }
-    return payload;
-  }
-  return p;
+  await sb.auth.signOut();
+  location.href = 'login.html?err=belum-aktif';
+  throw new Error('belum-aktif');
 }
+
 function akunDiblokir(p) {
   document.body.innerHTML = '<main class="min-h-screen grid place-items-center p-4"><div class="w-full max-w-sm bg-white rounded-2xl p-8 shadow-lg text-center">'
     + '<h1 class="text-xl font-extrabold text-hijau">Akun belum aktif</h1>'
