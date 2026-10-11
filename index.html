@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self';
+               script-src  'self' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com;
+               style-src   'self' 'unsafe-inline' https://fonts.googleapis.com;
+               font-src    https://fonts.gstatic.com;
+               img-src     'self' data: https://*.supabase.co;
+               connect-src 'self' https://*.supabase.co https://date.nager.at;">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard · Admin SDN Sukamahi 03</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap"
+    rel="stylesheet">
+  <!-- Tailwind CSS – cukup untuk pengembangan; ganti dengan build PostCSS untuk produksi -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/tailwind-config.js"></script>
+  <script>try { if (localStorage.getItem('tema') === 'gelap') document.documentElement.classList.add('dark'); } catch (e) {}</script>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+  <!-- Top bar -->
+  <header class="topbar bg-ink text-white">
+    <span class="font-extrabold truncate text-sm sm:text-base">SDN Sukamahi 03</span>
+    <div class="ml-auto flex items-center gap-3 text-sm">
+      <span id="user-email" class="opacity-70 hidden sm:inline"></span>
+      <button id="btn-tema" class="rounded-lg bg-white/10 px-3 py-1.5 hover:bg-white/20" title="Mode gelap / terang">🌙</button>
+      <button id="btn-keluar" class="rounded-lg bg-white/10 px-3 py-1.5 hover:bg-white/20">Keluar</button>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <aside id="sidebar" class="sidebar" aria-label="Menu utama">
+    <button id="btn-menu" class="side-item" aria-expanded="false" aria-label="Buka atau tutup menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M4 6h16M4 12h16M4 18h16" />
+      </svg>
+      <span class="side-label">Menu</span>
+    </button>
+    <nav class="mt-4 flex flex-col gap-1">
+      <a href="#dashboard" data-nav="dashboard" class="side-item" title="Dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="9" rx="1.5" />
+          <rect x="14" y="3" width="7" height="5" rx="1.5" />
+          <rect x="14" y="12" width="7" height="9" rx="1.5" />
+          <rect x="3" y="16" width="7" height="5" rx="1.5" />
+        </svg>
+        <span class="side-label">Dashboard</span>
+      </a>
+      <div class="navgroup" id="grup-guru" data-open="false">
+        <button type="button" id="btn-grup-guru" class="side-item" title="Pegawai" aria-expanded="false"
+          aria-controls="sub-guru">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <circle cx="9" cy="8" r="3.5" />
+            <path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14.2a6.5 6.5 0 0 1 3.5 5.8" />
+          </svg>
+          <span class="side-label">Pegawai</span>
+          <svg class="side-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
+        <div class="subnav" id="sub-guru">
+          <div>
+            <a href="#guru" data-nav="guru" class="side-subitem">Data Guru</a>
+            <a href="#berkas" data-nav="berkas" class="side-subitem">Berkas Digital</a>
+          </div>
+        </div>
+      </div>
+      <a href="#whatsapp" data-nav="whatsapp" class="side-item" title="WhatsApp">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+          <path d="M21 12a8.5 8.5 0 0 1-12.5 7.5L3 21l1.6-5.3A8.5 8.5 0 1 1 21 12Z" />
+        </svg>
+        <span class="side-label">WhatsApp</span>
+      </a>
+      <div class="navgroup" id="grup-mutasi" data-open="false">
+        <button type="button" id="btn-grup-mutasi" class="side-item" title="Mutasi" aria-expanded="false"
+          aria-controls="sub-mutasi">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M7 7h13l-3-3M17 17H4l3 3" />
+          </svg>
+          <span class="side-label">Mutasi</span>
+          <svg class="side-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
+        <div class="subnav" id="sub-mutasi">
+          <div>
+            <a href="#mutasi-masuk" data-nav="mutasi-masuk" class="side-subitem">Mutasi Masuk</a>
+            <a href="#mutasi-keluar" data-nav="mutasi-keluar" class="side-subitem">Mutasi Keluar</a>
+            <button id="btn-rag-chat" class="side-subitem bg-hijau text-white rounded px-2 py-1 text-xs ml-2">RAG
+              Chat</button>
+          </div>
+        </div>
+      </div>
+      <a href="#absensi" data-nav="absensi" class="side-item" title="Absensi">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="17" rx="2" />
+          <path d="M8 2v4M16 2v4M3 9h18" />
+        </svg>
+        <span class="side-label">Absensi</span>
+      </a>
+      <a href="#jurnal" data-nav="jurnal" id="nav-jurnal" class="side-item" title="Jurnal Harian">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+          <path d="M5 3h11l3 3v15H5z" />
+          <path d="M9 8h6M9 12h6M9 16h4" />
+        </svg>
+        <span class="side-label">Jurnal Harian</span>
+      </a>
+      <a href="#pengguna" data-nav="pengguna" id="nav-pengguna" class="side-item hidden" title="Pengguna">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round">
+          <circle cx="12" cy="8" r="3.5" />
+          <path d="M5 20a7 7 0 0 1 14 0" />
+        </svg>
+        <span class="side-label">Pengguna</span>
+      </a>
+    </nav>
+  </aside>
+
+  <div class="app-main">
+
+    <main class="max-w-7xl mx-auto p-3">
+      <!-- DASHBOARD -->
+      <section id="view-dashboard" class="grid gap-3 lg:grid-cols-[1fr_360px]">
+        <div class="space-y-3 min-w-0">
+          <div class="grid gap-3 md:grid-cols-5 md:h-[17rem]">
+            <article data-naik style="--i:0"
+              class="md:col-span-2 rounded-xl bg-hijau text-white p-4 flex flex-col justify-between min-w-0">
+              <p id="hari" class="text-3xl sm:text-4xl font-extrabold leading-none break-words"></p>
+              <div class="min-w-0">
+                <p id="tanggal" class="mt-2 text-base sm:text-lg"></p>
+                <p id="jam" class="mt-2 sm:mt-4 text-4xl sm:text-5xl font-extrabold tabular-nums text-emas"></p>
+                <p class="text-sm opacity-70">WIB</p>
+              </div>
+            </article>
+            <article data-naik style="--i:1"
+              class="md:col-span-3 rounded-xl bg-white p-4 h-72 md:h-auto min-h-0 flex flex-col">
+              <h2 class="font-extrabold text-lg">Catatan pekerjaan</h2>
+              <form id="form-tugas" class="mt-3 flex flex-wrap gap-2">
+                <input id="tugas-judul" required placeholder="Tulis pekerjaan baru"
+                  class="flex-1 min-w-[10rem] rounded-lg border border-ink/20 px-3 py-2 text-sm">
+                <input id="tugas-tenggat" type="date" aria-label="Tenggat"
+                  class="rounded-lg border border-ink/20 px-3 py-2 text-sm">
+                <button class="rounded-lg bg-hijau text-white text-sm font-semibold px-4 hover:bg-ink">Tambah</button>
+              </form>
+              <ul id="list-tugas" class="mt-3 flex-1 min-h-0 overflow-y-auto divide-y divide-ink/10 chat-scroll pr-1">
+              </ul>
+            </article>
+          </div>
+          <div class="grid gap-3 xl:grid-cols-2 xl:items-stretch">
+            <article data-naik style="--i:2" class="rounded-xl bg-white p-3 min-w-0 flex flex-col overflow-hidden h-[340px] sm:h-[280px]">
+              <div class="flex flex-wrap items-center gap-2 shrink-0">
+                <h2 class="font-extrabold text-base mr-auto">Data Pegawai</h2>
+                <a href="#guru"
+                  class="rounded-lg border border-ink/20 text-xs font-semibold px-2.5 py-1 hover:bg-kertas">Kelola data
+                  pegawai</a>
+              </div>
+              <div class="mt-2 flex gap-3 flex-1 min-h-0">
+                <div id="grafik-guru" class="w-[10rem] sm:w-[12.5rem] shrink-0 min-h-0 overflow-hidden flex flex-col items-center justify-start text-center"></div>
+                <div class="flex-1 min-w-0 h-full min-h-0 overflow-y-auto chat-scroll pr-1">
+                  <ul id="list-guru" class="divide-y divide-ink/10"></ul>
+                </div>
+              </div>
+            </article>
+
+            <article data-naik style="--i:3" class="rounded-xl bg-white p-3 min-w-0 flex flex-col overflow-hidden h-[340px] sm:h-[280px]">
+              <div class="flex flex-wrap items-center gap-2 shrink-0">
+                <h2 class="font-extrabold text-base mr-auto">Jurnal harian pegawai</h2>
+                <input id="jh-tanggal" type="date" aria-label="Tanggal jurnal"
+                  class="rounded-lg border border-ink/20 px-2 py-1 text-xs">
+              </div>
+              <p id="jh-ringkasan" class="mt-1 text-xs text-ink/60 leading-tight truncate shrink-0">Memuat...</p>
+              <div class="mt-1 flex-1 min-h-0 overflow-y-auto chat-scroll pr-1">
+                <ul id="list-jurnal-harian" class="grid gap-[3px]"></ul>
+              </div>
+              <p id="jh-hint" class="mt-1 text-[11px] text-ink/50 leading-tight truncate shrink-0" title=""></p>
+            </article>
+          </div>
+
+          <article data-naik style="--i:3" class="rounded-xl bg-white p-4">
+            <div class="flex flex-wrap items-center gap-2">
+              <h2 class="font-extrabold text-lg mr-auto">Mutasi siswa</h2>
+              <a href="#mutasi-masuk"
+                class="rounded-lg border border-ink/20 text-sm font-semibold px-3 py-1.5 hover:bg-kertas">Mutasi
+                masuk</a>
+              <a href="#mutasi-keluar"
+                class="rounded-lg border border-ink/20 text-sm font-semibold px-3 py-1.5 hover:bg-kertas">Mutasi
+                keluar</a>
+            </div>
+            <div class="mt-3 grid gap-4 md:grid-cols-[210px_1fr] items-start">
+              <div id="donat-mutasi"></div>
+              <div id="bar-mutasi" class="min-w-0"></div>
+            </div>
+          </article>
+        </div>
+
+        <aside data-naik style="--i:4"
+          class="rounded-xl bg-white flex flex-col h-[28rem] sm:h-[32rem] lg:h-[calc(100vh-5.5rem)] lg:sticky lg:top-[72px]">
+          <div class="flex items-center gap-3 px-5 pt-5">
+            <div id="ai-avatar" class="ai-orb" data-state="idle" aria-hidden="true"><span></span><span></span></div>
+            <div>
+              <h2 id="ai-nama" class="font-extrabold text-lg leading-tight">Asisten</h2>
+              <p id="ai-status" class="text-xs text-ink/60">Siap membantu</p>
+            </div>
+          </div>
+          <div id="chat-log" class="chat-scroll flex-1 overflow-y-auto px-5 py-3 space-y-3 text-sm"></div>
+          <form id="form-chat" class="p-3 border-t border-ink/10 flex gap-2">
+            <input id="chat-input" required placeholder="Tanya atau minta pengingat"
+              class="flex-1 rounded-lg border border-ink/20 px-3 py-2 text-sm">
+            <button class="rounded-lg bg-hijau text-white text-sm font-semibold px-4 hover:bg-ink">Kirim</button>
+          </form>
+        </aside>
+      </section>
+
+      <!-- DATA GURU -->
+      <section id="view-guru" class="hidden grid gap-3 lg:grid-cols-[280px_1fr]">
+        <article class="rounded-xl bg-white p-3 flex flex-col max-h-[32rem] lg:max-h-none lg:h-[calc(100vh-5.5rem)]">
+          <div class="flex gap-2">
+            <input id="g-cari" type="search" placeholder="Cari nama guru..."
+              class="flex-1 min-w-0 rounded-lg border border-ink/20 px-3 py-2 text-sm">
+            <button id="g-tambah"
+              class="rounded-lg bg-hijau text-white text-sm font-semibold px-3 hover:bg-ink">Tambah</button>
+          </div>
+          <p id="g-jumlah" class="mt-2 text-xs text-ink/60"></p>
+          <ul id="g-list" class="mt-2 flex-1 overflow-y-auto"></ul>
+          <button id="g-rekap"
+            class="mt-3 rounded-lg border border-ink/20 text-sm font-semibold px-3 py-2 hover:bg-kertas">Unduh rekap
+            PDF</button>
+        </article>
+        <article id="g-panel" class="rounded-xl bg-white p-4 min-w-0"></article>
+      </section>
+
+      <!-- BERKAS DIGITAL GURU -->
+      <section id="view-berkas" class="hidden grid gap-3 lg:grid-cols-[280px_1fr]">
+        <article class="rounded-xl bg-white p-3 flex flex-col max-h-[32rem] lg:max-h-none lg:h-[calc(100vh-5.5rem)]">
+          <div class="flex gap-2">
+            <input id="b-cari" type="search" placeholder="Cari nama guru..."
+              class="flex-1 min-w-0 rounded-lg border border-ink/20 px-3 py-2 text-sm">
+          </div>
+          <p id="b-jumlah" class="mt-2 text-xs text-ink/60"></p>
+          <ul id="b-list" class="mt-2 flex-1 overflow-y-auto"></ul>
+        </article>
+        <article id="b-panel" class="rounded-xl bg-white p-4 min-w-0"></article>
+      </section>
+
+      <!-- WHATSAPP -->
+      <section id="view-whatsapp" class="hidden max-w-xl">
+        <article class="rounded-xl bg-white p-4">
+          <h2 class="font-extrabold text-lg">WhatsApp</h2>
+          <p class="text-sm text-ink/60 mt-1">WhatsApp tidak bisa ditampilkan di dalam halaman lain, jadi pesan dibuka
+            di jendela WhatsApp milikmu.</p>
+          <form id="form-wa" class="mt-4 space-y-3">
+            <input id="wa-nomor" required inputmode="tel" placeholder="Nomor tujuan, mis. 0812xxxxxxx"
+              class="w-full rounded-lg border border-ink/20 px-3 py-2 text-sm">
+            <textarea id="wa-pesan" rows="4" placeholder="Isi pesan"
+              class="w-full rounded-lg border border-ink/20 px-3 py-2 text-sm"></textarea>
+            <div class="flex gap-2">
+              <button class="rounded-lg bg-hijau text-white text-sm font-semibold px-4 py-2 hover:bg-ink">Kirim lewat
+                WhatsApp</button>
+              <a href="https://web.whatsapp.com" target="_blank" rel="noopener"
+                class="rounded-lg border border-ink/20 text-sm font-semibold px-4 py-2 hover:bg-kertas">Buka WhatsApp
+                Web</a>
+            </div>
+          </form>
+        </article>
+      </section>
+
+      <!-- MUTASI MASUK -->
+      <section id="view-mutasi-masuk" class="hidden grid gap-4 lg:grid-cols-[270px_1fr] items-start">
+        <!-- Kolom Kiri: Tombol Input + Donut Chart -->
+        <div class="space-y-4">
+          <button id="mm-tambah"
+            class="w-full rounded-xl bg-hijau hover:bg-ink text-white font-extrabold py-3.5 px-4 text-center tracking-wide uppercase text-sm shadow transition">
+            INPUT SISWA MUTASI MASUK
+          </button>
+          <div class="grid grid-cols-2 gap-2">
+            <button id="mm-batch"
+              class="rounded-xl border border-hijau text-hijau font-bold py-2 px-2 text-center text-xs hover:bg-hijau hover:text-white shadow-sm transition">UPLOAD
+              BATCH</button>
+            <button id="mm-template"
+              class="rounded-xl border border-ink/20 text-ink font-bold py-2 px-2 text-center text-xs hover:bg-kertas shadow-sm transition">FORMAT
+              EXCEL</button>
+          </div>
+
+          <article class="rounded-xl bg-white p-4 shadow-sm">
+            <h3 class="font-extrabold text-sm text-center mb-3">Grafik Data Mutasi Masuk</h3>
+            <div id="mm-grafik"></div>
+          </article>
+        </div>
+
+        <!-- Kolom Kanan: Tabel Data Siswa -->
+        <article class="rounded-xl bg-white p-4 shadow-sm min-w-0">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <input id="mm-cari" type="search" placeholder="Cari nama siswa / asal sekolah..."
+              class="rounded-lg border border-ink/20 px-3 py-1.5 text-sm min-w-[15rem]">
+            <p id="mm-jumlah" class="text-xs text-ink/60"></p>
+          </div>
+          <div class="overflow-x-auto rounded-lg border border-ink/10">
+            <table class="w-full text-left text-xs whitespace-nowrap">
+              <thead class="bg-gray-200/80 text-ink/80 font-bold border-b border-ink/10 text-xs">
+                <tr>
+                  <th class="px-2.5 py-2 whitespace-nowrap">Nama Siswa</th>
+                  <th class="px-2.5 py-2 whitespace-nowrap">Tempat, Tgl. Lahir</th>
+                  <th class="px-2.5 py-2 whitespace-nowrap">JK</th>
+                  <th class="px-2.5 py-2 whitespace-nowrap">NISN</th>
+                  <th class="px-2.5 py-2 whitespace-nowrap">No. Surat</th>
+                  <th class="px-2.5 py-2 whitespace-nowrap">Asal Sekolah</th>
+                  <th class="px-2.5 py-2 whitespace-nowrap text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="mm-tabel-body" class="divide-y divide-ink/10 text-xs"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <!-- MUTASI KELUAR -->
+      <section id="view-mutasi-keluar" class="hidden grid gap-4 lg:grid-cols-[270px_1fr] items-start">
+        <!-- Kolom Kiri: Tombol Input + Donut Chart -->
+        <div class="space-y-4">
+          <button id="mk-tambah"
+            class="w-full rounded-xl bg-[#851336] hover:bg-[#600020] text-white font-extrabold py-3.5 px-4 text-center tracking-wide uppercase text-sm shadow transition">
+            INPUT SISWA MUTASI KELUAR
+          </button>
+          <div class="grid grid-cols-2 gap-2">
+            <button id="mk-batch"
+              class="rounded-xl border border-[#851336] text-[#851336] font-bold py-2 px-2 text-center text-xs hover:bg-[#851336] hover:text-white shadow-sm transition">UPLOAD
+              BATCH</button>
+            <button id="mk-template"
+              class="rounded-xl border border-ink/20 text-ink font-bold py-2 px-2 text-center text-xs hover:bg-kertas shadow-sm transition">FORMAT
+              EXCEL</button>
+          </div>
+
+          <article class="rounded-xl bg-white p-4 shadow-sm">
+            <h3 class="font-extrabold text-sm text-center mb-3">Grafik Data Mutasi Keluar</h3>
+            <div id="mk-grafik"></div>
+          </article>
+        </div>
+
+        <!-- Kolom Kanan: Tabel Data Siswa -->
+        <article class="rounded-xl bg-white p-4 shadow-sm min-w-0">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <input id="mk-cari" type="search" placeholder="Cari nama siswa / tujuan sekolah..."
+              class="rounded-lg border border-ink/20 px-3 py-1.5 text-sm min-w-[15rem]">
+            <p id="mk-jumlah" class="text-xs text-ink/60"></p>
+          </div>
+          <div class="overflow-x-auto rounded-lg border border-ink/10">
+            <table class="w-full text-left text-xs whitespace-nowrap">
+              <thead class="bg-gray-200/80 text-ink/80 font-bold border-b border-ink/10 text-xs">
+                <tr>
+                  <th class="px-2.5 py-2 whitespace-nowrap">Nama Siswa</th>
+                  <th class="px-2.5 py-2 whitespace-nowrap">Tempat, Tgl. Lahir</th>
+                  <th class="px-2.5 py-2 whitespace-nowrap">JK</th>
+                  <th class="px-2.5 py-2 whitespace-nowrap">NISN</th>
+                  <th class="px-2.5 py-2 whitespace-nowrap">No. Surat</th>
+                  <th class="px-2.5 py-2 whitespace-nowrap">Tujuan Sekolah</th>
+                  <th class="px-2.5 py-2 whitespace-nowrap text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="mk-tabel-body" class="divide-y divide-ink/10 text-xs"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+      <!-- ABSENSI -->
+      <section id="view-absensi" class="hidden space-y-3">
+        <article class="rounded-xl bg-white p-4">
+          <div class="flex flex-wrap items-end gap-2">
+            <h2 class="font-extrabold text-lg mr-auto">Rekapitulasi Kehadiran</h2>
+            <label class="text-sm font-semibold">Bulan <input id="a-bulan" type="month"
+                class="ml-1 rounded-lg border border-ink/20 px-3 py-1.5 text-sm font-normal"></label>
+            <button id="a-cetak"
+              class="rounded-lg border border-hijau text-hijau text-sm font-semibold px-4 py-2 hover:bg-hijau hover:text-white">Cetak
+              (F4)</button>
+            <button id="a-pdf" class="rounded-lg bg-hijau text-white text-sm font-semibold px-4 py-2 hover:bg-ink">Unduh
+              PDF</button>
+          </div>
+          <p id="a-jumlah" class="mt-1 text-xs text-ink/60"></p>
+        </article>
+        <article class="rounded-xl bg-white p-4 min-w-0">
+          <div class="overflow-x-auto rounded-lg border border-ink/10">
+            <table class="text-center text-xs whitespace-nowrap border-collapse">
+              <thead id="a-thead" class="bg-gray-200/80 font-bold border-b border-ink/10"></thead>
+              <tbody id="a-tabel-body" class="divide-y divide-ink/10"></tbody>
+            </table>
+          </div>
+          <div id="a-ttd" class="mt-4"></div>
+          <details class="mt-3 text-sm">
+            <summary class="cursor-pointer font-semibold">Input tanggal merah</summary>
+            <div class="mt-2 flex flex-wrap items-end gap-2">
+              <label class="text-sm font-semibold">Tanggal <input id="m-tanggal" type="date"
+                  class="ml-1 rounded-lg border border-ink/20 px-3 py-1.5 text-sm font-normal"></label>
+              <label class="text-sm font-semibold">Keterangan <input id="m-ket" type="text"
+                  placeholder="cth: Maulid Nabi Muhammad SAW"
+                  class="ml-1 rounded-lg border border-ink/20 px-3 py-1.5 text-sm font-normal min-w-[16rem]"></label>
+              <button id="m-simpan"
+                class="rounded-lg bg-hijau text-white text-sm font-semibold px-4 py-2 hover:bg-ink">Simpan tanggal
+                merah</button>
+            </div>
+            <ul id="m-daftar" class="mt-2 grid gap-1.5 sm:grid-cols-2"></ul>
+          </details>
+        </article>
+      </section>
+      <!-- JURNAL HARIAN -->
+      <section id="view-jurnal" class="hidden space-y-3">
+        <article class="rounded-xl bg-white p-4">
+          <div class="flex flex-wrap items-end gap-2">
+            <div class="mr-auto">
+              <h2 class="font-extrabold text-lg">Jurnal Kerja Harian</h2>
+              <p id="j-identitas" class="text-xs text-ink/60 mt-0.5"></p>
+            </div>
+            <label id="j-filter-pemilik" class="text-sm font-semibold hidden">Pegawai <select id="j-pemilik"
+                class="ml-1 rounded-lg border border-ink/20 px-3 py-1.5 text-sm font-normal"></select></label>
+            <label class="text-sm font-semibold">Tanggal <input id="j-tanggal" type="date"
+                class="ml-1 rounded-lg border border-ink/20 px-3 py-1.5 text-sm font-normal"></label>
+            <button id="j-tambah"
+              class="rounded-lg bg-hijau text-white text-sm font-semibold px-4 py-2 hover:bg-ink">Tambah jurnal harian</button>
+            <div class="relative">
+              <button id="j-aksi"
+                class="rounded-lg border border-hijau text-hijau text-sm font-semibold px-4 py-2 hover:bg-hijau hover:text-white">Aksi
+                ▾</button>
+              <div id="j-aksi-menu"
+                class="hidden absolute right-0 z-20 mt-1 w-40 overflow-hidden rounded-lg border border-ink/15 bg-white shadow-lg">
+                <button id="j-cetak"
+                  class="block w-full px-4 py-2 text-left text-sm font-semibold text-hijau hover:bg-hijau hover:text-white">Cetak
+                  / PDF</button>
+                <button id="j-unduh-pdf"
+                  class="block w-full px-4 py-2 text-left text-sm font-semibold text-hijau hover:bg-hijau hover:text-white">Unduh
+                  PDF</button>
+                <button id="j-unduh-png"
+                  class="block w-full px-4 py-2 text-left text-sm font-semibold text-hijau hover:bg-hijau hover:text-white">Unduh
+                  PNG</button>
+              </div>
+            </div>
+            <label class="text-xs font-semibold flex items-center gap-1.5 rounded-lg border border-ink/20 px-3 py-2"
+              title="Sembunyikan gambar TTD, sisakan ruang kosong untuk tanda tangan manual"><input id="j-ttd-hide"
+                type="checkbox" class="size-3.5 accent-[#1F6B4F]"> TTD manual</label>
+          </div>
+          <p id="j-jumlah" class="mt-1 text-xs text-ink/60"></p>
+        </article>
+        <article id="j-laporan" class="rounded-xl bg-white p-4 min-w-0">
+          <h3 class="text-center font-extrabold tracking-wide text-base" style="font-family:'Times New Roman',serif">JURNAL KERJA HARIAN</h3>
+          <div class="overflow-x-auto mt-2">
+            <table class="w-full text-xs" style="border-collapse:collapse">
+              <tr>
+                <td class="p-2" style="border:1px solid #000;width:70%;line-height:1.7">
+                  <table style="border-collapse:collapse;line-height:1.7;width:100%">
+                    <tr><td style="white-space:nowrap;vertical-align:top;width:110px">Nama Pegawai</td><td style="padding:0 6px;vertical-align:top;width:12px">:</td><td style="vertical-align:top"><span id="j-id-nama">-</span></td></tr>
+                    <tr><td style="white-space:nowrap;vertical-align:top;width:110px">NIP</td><td style="padding:0 6px;vertical-align:top;width:12px">:</td><td style="vertical-align:top"><span id="j-id-nip">-</span></td></tr>
+                    <tr><td style="white-space:nowrap;vertical-align:top;width:110px">Jabatan</td><td style="padding:0 6px;vertical-align:top;width:12px">:</td><td style="vertical-align:top"><span id="j-id-jabatan">-</span></td></tr>
+                    <tr><td style="white-space:nowrap;vertical-align:top;width:110px">Unit Kerja</td><td style="padding:0 6px;vertical-align:top;width:12px">:</td><td style="vertical-align:top">SDN Sukamahi 03</td></tr>
+                    <tr><td style="white-space:nowrap;vertical-align:top;width:110px">Hari/Tanggal</td><td style="padding:0 6px;vertical-align:top;width:12px">:</td><td style="vertical-align:top"><span id="j-id-tanggal">-</span></td></tr>
+                  </table>
+                </td>
+                <td style="border:1px solid #000;width:30%"></td>
+              </tr>
+            </table>
+            <table class="w-full text-xs" style="border-collapse:collapse;margin-top:-1px">
+              <thead>
+                <tr style="background:#8fd18f">
+                  <th style="border:1px solid #000;padding:6px;width:36px">No</th>
+                  <th style="border:1px solid #000;padding:6px;width:80px">Waktu</th>
+                  <th style="border:1px solid #000;padding:6px">Kegiatan</th>
+                  <th style="border:1px solid #000;padding:6px;width:260px">Bukti Dukung</th>
+                  <th style="border:1px solid #000;padding:6px;width:70px">Ket</th>
+                  <th data-j-aksi style="border:1px solid #000;padding:6px;width:96px">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="j-tabel-body"></tbody>
+            </table>
+            <div class="flex justify-end mt-4 text-xs">
+              <div class="text-left">Cikarang Pusat, <span id="j-id-ttd-tgl">........................</span><br>Dibuat oleh:<br>
+              <div id="j-id-ttd-slot" style="width:140px;height:78px;margin:4px 0;display:flex;align-items:flex-end">
+                <img id="j-id-ttd-img" alt="Tanda tangan" crossorigin="anonymous" style="width:140px;max-height:70px;display:none">
+              </div>
+              <span id="j-id-ttd-nama">________________________________</span><br>NIP. <span id="j-id-ttd-nip">___________________________</span></div>
+            </div>
+          </div>
+        </article>
+      </section>
+      <!-- PENGGUNA (ADMIN) -->
+      <section id="view-pengguna" class="hidden space-y-3">
+        <article class="rounded-xl bg-white p-4">
+          <div class="flex flex-wrap items-center gap-2">
+            <div class="mr-auto">
+              <h2 class="font-extrabold text-lg">Kelola Pengguna</h2>
+              <p class="text-xs text-ink/60 mt-0.5">Verifikasi berurutan: 1) pilih Data Pegawai yang sesuai email, 2) atur role, 3) baru Aktifkan. Akun baru otomatis non-aktif.</p>
+            </div>
+            <input id="p-cari" type="search" placeholder="Cari nama / email..."
+              class="rounded-lg border border-ink/20 px-3 py-1.5 text-sm min-w-[14rem]">
+          </div>
+          <p id="p-jumlah" class="mt-1 text-xs text-ink/60"></p>
+        </article>
+        <article class="rounded-xl bg-white p-4 min-w-0">
+          <div class="overflow-x-auto rounded-lg border border-ink/10">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-gray-200/80 text-ink/80 font-bold border-b border-ink/10">
+                <tr>
+                  <th class="px-2.5 py-2">Nama</th>
+                  <th class="px-2.5 py-2">Email</th>
+                  <th class="px-2.5 py-2">Data Pegawai</th>
+                  <th class="px-2.5 py-2">Role</th>
+                  <th class="px-2.5 py-2 text-center">Aktif</th>
+                  <th class="px-2.5 py-2 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="p-tabel-body" class="divide-y divide-ink/10"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <!-- Jendela pratinjau berkas -->
+  <div id="viewer" class="hidden fixed inset-0 z-[60] bg-black/60 p-3 sm:p-6 flex items-center justify-center"
+    role="dialog" aria-modal="true" aria-labelledby="viewer-judul">
+    <div class="bg-white rounded-xl w-full max-w-5xl h-full max-h-[90vh] flex flex-col overflow-hidden">
+      <div class="flex items-center gap-2 px-4 py-2 border-b border-ink/10">
+        <p id="viewer-judul" class="mr-auto text-sm font-semibold truncate"></p>
+        <button id="viewer-unduh"
+          class="rounded-lg border border-ink/20 text-sm font-semibold px-3 py-1 hover:bg-kertas">Unduh</button>
+        <button id="viewer-tutup"
+          class="rounded-lg bg-hijau text-white text-sm font-semibold px-3 py-1 hover:bg-ink">Tutup</button>
+      </div>
+      <div id="viewer-isi" class="flex-1 min-h-0 bg-kertas flex items-center justify-center overflow-auto"></div>
+    </div>
+  </div>
+
+  <!-- Modal Detail Mutasi Siswa (Compact Layout) -->
+  <div id="modal-mutasi-detail"
+    class="hidden fixed inset-0 z-[60] bg-black/60 p-3 sm:p-4 flex items-center justify-center overflow-y-auto"
+    role="dialog" aria-modal="true">
+    <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
+      <div class="flex items-center justify-between px-5 py-3.5 border-b border-ink/10 bg-kertas/50">
+        <div class="min-w-0 mr-2">
+          <h3 id="md-nama" class="font-extrabold text-base text-ink truncate">Detail Siswa</h3>
+          <p id="md-sub" class="text-xs text-ink/60 truncate"></p>
+        </div>
+        <button id="md-tutup" class="rounded-lg p-1.5 text-ink/60 hover:bg-ink/10 hover:text-ink shrink-0"
+          title="Tutup">
+          <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div id="md-isi" class="flex-1 overflow-y-auto p-5 text-sm space-y-3 chat-scroll"></div>
+      <div class="flex flex-wrap items-center justify-end gap-2 px-5 py-3 border-t border-ink/10 bg-kertas/30"
+        id="md-actions"></div>
+    </div>
+  </div>
+
+  <!-- Modal Form Input/Edit Mutasi -->
+  <div id="modal-mutasi-form"
+    class="hidden fixed inset-0 z-[60] bg-black/60 p-3 sm:p-4 flex items-center justify-center overflow-y-auto"
+    role="dialog" aria-modal="true">
+    <div class="bg-white rounded-2xl w-full max-w-xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
+      <div class="flex items-center justify-between px-5 py-3.5 border-b border-ink/10 bg-kertas/50">
+        <h3 id="mf-judul" class="font-extrabold text-base text-ink truncate">Form Data Mutasi</h3>
+        <button id="mf-tutup" class="rounded-lg p-1.5 text-ink/60 hover:bg-ink/10 hover:text-ink shrink-0"
+          title="Tutup">
+          <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div class="flex-1 overflow-y-auto p-5 chat-scroll">
+        <form id="mf-form" class="grid gap-3 sm:grid-cols-2"></form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Upload Batch Mutasi -->
+
+
+  <!-- Modal Upload Batch Mutasi (unchanged) -->
+  <div id="modal-mutasi-batch"
+    class="hidden fixed inset-0 z-[60] bg-black/60 p-3 sm:p-4 flex items-center justify-center overflow-y-auto"
+    role="dialog" aria-modal="true">
+    <div class="bg-white rounded-2xl w-full max-w-xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
+      <div class="flex items-center justify-between px-5 py-3.5 border-b border-ink/10 bg-kertas/50">
+        <h3 id="mb-judul" class="font-extrabold text-base text-ink truncate">Upload Batch</h3>
+        <button id="mb-tutup" class="rounded-lg p-1.5 text-ink/60 hover:bg-ink/10 hover:text-ink shrink-0"
+          title="Tutup">
+          <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div class="flex-1 overflow-y-auto p-5 chat-scroll space-y-3">
+        <p class="text-xs text-ink/60">Unggah file Excel (.xlsx) sesuai format. <button id="mb-template-link"
+            class="font-bold text-hijau hover:underline">Unduh format Excel</button></p>
+        <input id="mb-file" type="file" accept=".xlsx,.xls,.csv" class="w-full text-sm">
+        <div id="mb-preview" class="overflow-x-auto rounded-lg border border-ink/10 text-xs"></div>
+        <p id="mb-hasil" class="text-xs font-semibold"></p>
+      </div>
+      <div class="flex justify-end gap-2 px-5 py-3 border-t border-ink/10 bg-kertas/30">
+        <button id="mb-batal"
+          class="rounded-lg border border-ink/20 px-4 py-2 text-xs font-semibold hover:bg-kertas">Batal</button>
+        <button id="mb-simpan"
+          class="rounded-lg bg-hijau text-white px-5 py-2 text-xs font-bold hover:opacity-90 shadow transition">Simpan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal RAG Chat -->
+  <div id="modal-rag-chat"
+    class="hidden fixed inset-0 z-[60] bg-black/60 p-3 sm:p-4 flex items-center justify-center overflow-y-auto"
+    role="dialog" aria-modal="true">
+    <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
+      <div class="flex items-center justify-between px-5 py-3.5 border-b border-ink/10 bg-kertas/50">
+        <h3 class="font-extrabold text-base text-ink truncate">Tanya Jawab Data Mutasi</h3>
+        <button id="rag-tutup" class="rounded-lg p-1.5 text-ink/60 hover:bg-ink/10 hover:text-ink shrink-0"
+          title="Tutup">
+          <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div id="rag-chat-messages" class="flex-1 overflow-y-auto p-5 chat-scroll min-h-[16rem]"></div>
+      <div class="px-5 py-3 border-t border-ink/10 bg-kertas/30 space-y-2">
+        <div class="flex gap-2">
+          <button id="rag-embed-masuk"
+            class="rounded-lg border border-ink/20 px-3 py-1.5 text-xs font-semibold hover:bg-kertas">Generate embedding
+            masuk</button>
+          <button id="rag-embed-keluar"
+            class="rounded-lg border border-ink/20 px-3 py-1.5 text-xs font-semibold hover:bg-kertas">Generate embedding
+            keluar</button>
+        </div>
+        <div class="flex gap-2">
+          <input id="rag-input" placeholder="Tulis pertanyaan..."
+            class="flex-1 rounded-lg border border-ink/20 px-3 py-2 text-sm">
+          <button id="rag-kirim"
+            class="rounded-lg bg-hijau text-white text-sm font-semibold px-4 hover:bg-ink">Kirim</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"
+    integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o"
+    crossorigin="anonymous"></script>
+  <script src="js/config.js"></script>
+  <script src="js/app.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+    integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk"
+    crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"
+    integrity="sha384-fCAW/rDWORTbQXSiB7mOg0QtQ5c+r0f544y6XoKjuVva0nMBlCpNUjiFeG5iMdS3"
+    crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"
+    integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw"
+    crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="js/guru.js"></script>
+  <script src="js/berkas.js"></script>
+  <script src="js/logo.js"></script>
+  <script src="js/mutasi.js"></script>
+  <script src="js/absensi.js"></script>
+  <script src="js/jurnal.js"></script>
+  <script src="js/pengguna.js"></script>
+</body>
+
+</html>

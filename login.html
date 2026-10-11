@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self';
+           script-src 'self' https://cdn.tailwindcss.com https://cdn.jsdelivr.net;
+           style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+           font-src https://fonts.gstatic.com;
+           img-src 'self' data:;
+           connect-src 'self' https://*.supabase.co;">
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Masuk · Admin SDN Sukamahi 03</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/tailwind-config.js"></script>
+  <script>try { if (localStorage.getItem('tema') === 'gelap') document.documentElement.classList.add('dark'); } catch (e) {}</script>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="min-h-screen grid place-items-center p-4">
+  <main class="w-full max-w-sm bg-white rounded-2xl p-8 shadow-lg">
+    <h1 class="text-2xl font-extrabold text-hijau">SDN Sukamahi 03</h1>
+    <p class="text-sm text-ink/70 mb-6">Administrasi sekolah, Cikarang Pusat</p>
+    <form id="form-login" class="space-y-4">
+      <label class="block text-sm font-semibold">Email
+        <input id="email" type="email" required autocomplete="username" class="mt-1 w-full rounded-lg border border-ink/20 px-3 py-2"></label>
+      <label class="block text-sm font-semibold">Kata sandi
+        <input id="password" type="password" required autocomplete="current-password" class="mt-1 w-full rounded-lg border border-ink/20 px-3 py-2"></label>
+      <p id="error" class="text-sm text-red-700 hidden" role="alert"></p>
+      <button class="w-full rounded-lg bg-hijau text-white font-semibold py-2.5 hover:bg-ink">Masuk</button>
+    </form>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+</html>

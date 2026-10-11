@@ -1,0 +1,14 @@
+# Kredensial lokal Supabase CLI (berisi ref project + URL pooler) — jangan ikut repo
+supabase/.temp/
+
+# Env / secret lokal bila ada nanti
+.env
+.env.*
+
+# Output Vercel CLI lokal
+.vercel/
+
+# Sampah OS / editor
+Thumbs.db
+.DS_Store
+*.log
