@@ -17,6 +17,17 @@ const peran = () => (profilSaya && profilSaya.role) || 'guru';
 const hanyaJurnal = () => peran() === 'guru' || peran() === 'pegawai' || peran() === 'kepsek';
 const adalahAdmin = () => peran() === 'admin';
 
+/* Keluar yang tidak bisa nyangkut: signOut boleh gagal, tapi
+   sesi lokal tetap dibersihkan dan halaman tetap pindah. */
+async function paksaKeluar(tujuan) {
+  try { await sb.auth.signOut(); } catch (e) { console.warn('signOut:', e && e.message); }
+  try {
+    Object.keys(localStorage).filter((k) => k.indexOf('sb-') === 0).forEach((k) => localStorage.removeItem(k));
+    sessionStorage.clear();
+  } catch { /* abaikan */ }
+  location.href = tujuan || 'login.html';
+}
+
 /* ---------- Profil + gerbang role ---------- */
 async function muatProfil() {
   try {
@@ -32,8 +43,7 @@ async function muatProfil() {
 async function pastikanProfil() {
   const p = await muatProfil();
   if (p && p.is_active) return p;
-  await sb.auth.signOut();
-  location.href = 'login.html?err=belum-aktif';
+  await paksaKeluar('login.html?err=belum-aktif');
   throw new Error('belum-aktif');
 }
 
@@ -42,7 +52,7 @@ function akunDiblokir(p) {
     + '<h1 class="text-xl font-extrabold text-hijau">Akun belum aktif</h1>'
     + '<p class="text-sm text-ink/70 mt-2">Akun ' + esc(session.user.email) + ' belum diaktifkan admin. Hubungi operator sekolah.</p>'
     + '<button id="btn-blokir-keluar" class="mt-4 w-full rounded-lg bg-hijau text-white font-semibold py-2.5 hover:bg-ink">Keluar</button></div></main>';
-  document.getElementById('btn-blokir-keluar').onclick = async () => { await sb.auth.signOut(); location.href = 'login.html'; };
+  document.getElementById('btn-blokir-keluar').onclick = () => paksaKeluar('login.html');
 }
 function terapkanRole() {
   const terbatas = hanyaJurnal();
@@ -69,8 +79,7 @@ function terapkanRole() {
 
   profilSaya = await pastikanProfil();
   if (!profilSaya) {
-    await sb.auth.signOut();
-    location.href = 'login.html?err=belum-aktif';
+    await paksaKeluar('login.html?err=belum-aktif');
     return;
   }
 
@@ -91,7 +100,7 @@ function terapkanRole() {
   salam();
 })();
 
-$('#btn-keluar').onclick = async () => { await sb.auth.signOut(); location.href = 'login.html'; };
+$('#btn-keluar').onclick = () => paksaKeluar('login.html');
 /* ---------- Tema gelap / terang (soft, tersimpan) ---------- */
 function terapkanTema(gelap) {
   document.documentElement.classList.toggle('dark', !!gelap);
