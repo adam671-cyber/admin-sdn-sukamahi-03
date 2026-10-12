@@ -14,7 +14,7 @@ let session, tugas = [], guru = [], chat = [], mutasiMasuk = [], mutasiKeluar = 
 let jhTgl = '', jhProfilMap = new Map(), jhSudah = new Map();
 let profilSaya = null;
 const peran = () => (profilSaya && profilSaya.role) || 'guru';
-const hanyaJurnal = () => peran() === 'guru' || peran() === 'pegawai';
+const hanyaJurnal = () => peran() === 'guru' || peran() === 'pegawai' || peran() === 'kepsek';
 const adalahAdmin = () => peran() === 'admin';
 
 /* ---------- Profil + gerbang role ---------- */

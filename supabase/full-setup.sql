@@ -128,8 +128,10 @@ create table if not exists public.profiles (
   nama text,
   role text not null default 'guru' check (role in ('admin','kepsek','guru','pegawai')),
   is_active boolean not null default true,
+  guru_id bigint references public.guru(id) on delete set null,
   created_at timestamptz default now()
 );
+create index if not exists profiles_guru_id_idx on public.profiles (guru_id);
 alter table public.profiles enable row level security;
 drop policy if exists "profiles_select_own" on public.profiles;
 create policy "profiles_select_own" on public.profiles for select to authenticated using (auth.uid() = id);
@@ -187,8 +189,15 @@ drop policy if exists "jurnal_owner_update" on public.jurnal_harian;
 create policy "jurnal_owner_update" on public.jurnal_harian for update to authenticated using (user_id = auth.uid() and public.am_active()) with check (user_id = auth.uid() and public.am_active());
 drop policy if exists "jurnal_owner_delete" on public.jurnal_harian;
 create policy "jurnal_owner_delete" on public.jurnal_harian for delete to authenticated using (user_id = auth.uid() and public.am_active());
-drop policy if exists "jurnal_kepsek_select" on public.jurnal_harian;
-create policy "jurnal_kepsek_select" on public.jurnal_harian for select to authenticated using (public.is_kepsek());
+create or replace function public.wajib_taut_pegawai() returns trigger language plpgsql as $$
+begin
+  if (new.role in ('guru','pegawai','kepsek') and new.is_active = true and new.guru_id is null) then
+    raise exception 'Tautkan dulu akun % ke Data Pegawai sebelum diaktifkan.', coalesce(new.email, new.id::text);
+  end if;
+  return new;
+end; $$;
+drop trigger if exists trg_profiles_wajib_taut on public.profiles;
+create trigger trg_profiles_wajib_taut before insert or update of role, is_active, guru_id on public.profiles for each row execute function public.wajib_taut_pegawai();
 drop policy if exists "jurnal_admin_all" on public.jurnal_harian;
 create policy "jurnal_admin_all" on public.jurnal_harian for all to authenticated using (public.is_admin()) with check (public.is_admin());
 drop policy if exists "guru baca aktif" on public.guru;

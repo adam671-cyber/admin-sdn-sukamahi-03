@@ -28,7 +28,7 @@ function renderPengguna() {
       <td class="px-2.5 py-2 font-semibold">${esc(p.nama || '-')}</td>
       <td class="px-2.5 py-2 text-ink/70">${esc(p.email || '-')}</td>
       <td class="px-2.5 py-2">
-        <select data-p="guru" data-id="${p.id}" class="rounded-lg border px-2 py-1 text-xs max-w-[12rem] ${!p.guru_id && (p.role === 'guru' || p.role === 'pegawai') ? 'border-amber-500 bg-amber-50' : 'border-ink/20'}" ${p.id === session.user.id ? 'disabled' : ''} title="Tautkan ke Data Pegawai (nama/NIP/jabatan jurnal)">
+        <select data-p="guru" data-id="${p.id}" class="rounded-lg border px-2 py-1 text-xs max-w-[12rem] ${!p.guru_id && (p.role === 'guru' || p.role === 'pegawai' || p.role === 'kepsek') ? 'border-amber-500 bg-amber-50' : 'border-ink/20'}" ${p.id === session.user.id ? 'disabled' : ''} title="Tautkan ke Data Pegawai (nama/NIP/jabatan jurnal)">
           <option value="">Belum ditautkan — wajib sebelum aktif</option>
           ${guruOpsi.map((g) => `<option value="${g.id}" ${String(p.guru_id) === String(g.id) ? 'selected' : ''}>${esc(g.nama)}${g.nip ? ' · ' + esc(g.nip) : ''}</option>`).join('')}
         </select>
@@ -42,7 +42,7 @@ function renderPengguna() {
         <span class="rounded px-2 py-0.5 text-[11px] font-bold ${p.is_active ? 'bg-hijau/10 text-hijau' : 'bg-red-100 text-red-700'}">${p.is_active ? 'Aktif' : 'Non-aktif'}</span>
       </td>
       <td class="px-2.5 py-2 text-center whitespace-nowrap">
-        <button data-p="toggle" data-id="${p.id}" title="${!p.is_active && (p.role === 'guru' || p.role === 'pegawai') && !p.guru_id ? 'Tautkan Data Pegawai dulu sebelum mengaktifkan' : (p.is_active ? 'Nonaktifkan akun' : 'Aktifkan akun')}" class="rounded-md border border-ink/20 px-2 py-0.5 text-[11px] font-semibold hover:bg-kertas ${!p.is_active && (p.role === 'guru' || p.role === 'pegawai') && !p.guru_id ? 'opacity-50' : ''}" ${p.id === session.user.id ? 'disabled' : ''}>${p.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button>
+        <button data-p="toggle" data-id="${p.id}" title="${!p.is_active && (p.role === 'guru' || p.role === 'pegawai' || p.role === 'kepsek') && !p.guru_id ? 'Tautkan Data Pegawai dulu sebelum mengaktifkan' : (p.is_active ? 'Nonaktifkan akun' : 'Aktifkan akun')}" class="rounded-md border border-ink/20 px-2 py-0.5 text-[11px] font-semibold hover:bg-kertas ${!p.is_active && (p.role === 'guru' || p.role === 'pegawai' || p.role === 'kepsek') && !p.guru_id ? 'opacity-50' : ''}" ${p.id === session.user.id ? 'disabled' : ''}>${p.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button>
       </td>
     </tr>`).join('');
 }
@@ -51,7 +51,7 @@ async function aksiPengguna(aksi, id, nilai) {
   if (id === session.user.id) return alert('Tidak bisa mengubah akun sendiri.');
   const p = penggunaDaftar.find((x) => String(x.id) === String(id));
   if (!p) return;
-  if (aksi === 'toggle' && !p.is_active && (p.role === 'guru' || p.role === 'pegawai') && !p.guru_id) {
+  if (aksi === 'toggle' && !p.is_active && (p.role === 'guru' || p.role === 'pegawai' || p.role === 'kepsek') && !p.guru_id) {
     return alert('Tautkan dulu akun ' + (p.email || '') + ' ke Data Pegawai sebelum diaktifkan, supaya nama/NIP/jabatan di jurnal benar.');
   }
   if (aksi === 'toggle' && !confirm((p.is_active ? 'Nonaktifkan' : 'Aktifkan') + ' akun ' + (p.nama || p.email) + '?')) return;
