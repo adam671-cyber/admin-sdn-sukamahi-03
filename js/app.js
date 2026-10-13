@@ -136,7 +136,7 @@ $('#btn-grup-mutasi').onclick = () => {
 };
 
 function route() {
-  const semua = ['dashboard', 'guru', 'berkas', 'whatsapp', 'mutasi-masuk', 'mutasi-keluar', 'absensi', 'jurnal', 'pengguna'];
+  const semua = ['dashboard', 'guru', 'berkas', 'whatsapp', 'mutasi-masuk', 'mutasi-keluar', 'absensi', 'arsip', 'jurnal', 'pengguna'];
   let h = location.hash.slice(1);
   if (hanyaJurnal()) {
     if (h !== 'jurnal') { location.hash = '#jurnal'; h = 'jurnal'; }
@@ -150,6 +150,7 @@ function route() {
   semua.forEach((n) => { const el = $('#view-' + n); if (el) el.classList.toggle('hidden', n !== v); });
   if (v === 'dashboard') { muatMutasiDashboard(); if (guru.length && typeof muatJurnalDashboard === 'function') muatJurnalDashboard(); }
   if (v === 'absensi' && typeof muatAbsensi === 'function') muatAbsensi();
+  if (v === 'arsip' && typeof muatArsip === 'function') muatArsip();
   if (v === 'jurnal' && typeof muatJurnal === 'function') muatJurnal();
   if (v === 'pengguna' && typeof muatPengguna === 'function') muatPengguna();
   document.querySelectorAll('[data-nav]').forEach((x) => { x.dataset.active = x.dataset.nav === v; });

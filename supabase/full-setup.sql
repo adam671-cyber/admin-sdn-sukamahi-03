@@ -209,3 +209,35 @@ drop policy if exists "staf baca bukti" on storage.objects;
 create policy "staf baca bukti" on storage.objects for select to authenticated using (bucket_id = 'bukti-jurnal' and public.am_active());
 drop policy if exists "staf tulis bukti" on storage.objects;
 create policy "staf tulis bukti" on storage.objects for all to authenticated using (bucket_id = 'bukti-jurnal' and public.am_active()) with check (bucket_id = 'bukti-jurnal' and public.am_active());
+-- ===== ARSIP BERKAS SEKOLAH (per tahun) =====
+create table if not exists public.arsip (
+  id bigint generated always as identity primary key,
+  tahun int not null,
+  nama_file text not null,
+  path text not null,
+  ukuran bigint,
+  tipe text,
+  dibuat timestamptz not null default now()
+);
+create index if not exists arsip_tahun_idx on public.arsip (tahun desc, dibuat desc);
+alter table public.arsip enable row level security;
+drop policy if exists "staf arsip" on public.arsip;
+create policy "staf arsip" on public.arsip for all to authenticated
+using (public.is_admin()) with check (public.is_admin());
+insert into storage.buckets (id, name, public) values ('arsip', 'arsip', false) on conflict (id) do nothing;
+update storage.buckets set file_size_limit = 10485760,
+  allowed_mime_types = array[
+    'application/pdf',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/csv',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ] where id = 'arsip';
+drop policy if exists "staf baca arsip" on storage.objects;
+create policy "staf baca arsip" on storage.objects for select to authenticated
+using (bucket_id = 'arsip' and public.is_admin());
+drop policy if exists "staf tulis arsip" on storage.objects;
+create policy "staf tulis arsip" on storage.objects for all to authenticated
+using (bucket_id = 'arsip' and public.is_admin())
+with check (bucket_id = 'arsip' and public.is_admin());

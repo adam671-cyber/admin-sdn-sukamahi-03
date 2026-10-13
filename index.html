@@ -106,6 +106,13 @@
         </svg>
         <span class="side-label">Absensi</span>
       </a>
+      <a href="#arsip" data-nav="arsip" class="side-item" title="Arsip">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="5" rx="1.5" />
+          <path d="M5 9v10h14V9M10 13h4" />
+        </svg>
+        <span class="side-label">Arsip</span>
+      </a>
       <a href="#jurnal" data-nav="jurnal" id="nav-jurnal" class="side-item" title="Jurnal Harian">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
           <path d="M5 3h11l3 3v15H5z" />
@@ -248,6 +255,29 @@
           <ul id="b-list" class="mt-2 flex-1 overflow-y-auto"></ul>
         </article>
         <article id="b-panel" class="rounded-xl bg-white p-4 min-w-0"></article>
+      </section>
+
+      <!-- ARSIP -->
+      <section id="view-arsip" class="hidden space-y-3">
+        <article class="rounded-xl bg-white p-4">
+          <h2 class="font-extrabold text-lg">Arsip Berkas</h2>
+          <p class="text-xs text-ink/60 mt-1">PDF, Excel, CSV, atau Word, maksimal 10 MB per file. Disimpan per tahun.</p>
+          <div class="mt-3 flex flex-wrap items-center gap-2">
+            <label class="text-sm font-semibold">Tahun
+              <select id="a-tahun" class="ml-1 rounded-lg border border-ink/20 px-3 py-1.5 text-sm font-normal"></select>
+            </label>
+            <input id="a-file" type="file" accept=".pdf,.xls,.xlsx,.csv,.doc,.docx" class="text-sm min-w-0 flex-1">
+            <button id="a-unggah" class="rounded-lg bg-hijau text-white text-sm font-semibold px-4 py-2 hover:bg-ink">Unggah</button>
+          </div>
+        </article>
+        <article class="rounded-xl bg-white p-4">
+          <div class="flex flex-wrap items-center gap-2">
+            <input id="a-cari" type="search" placeholder="Cari nama berkas..."
+              class="flex-1 min-w-[10rem] rounded-lg border border-ink/20 px-3 py-1.5 text-sm">
+          </div>
+          <p id="a-jumlah" class="mt-1 text-xs text-ink/60"></p>
+          <ul id="a-list" class="mt-2 divide-y divide-ink/10 text-sm"></ul>
+        </article>
       </section>
 
       <!-- WHATSAPP -->
@@ -664,6 +694,7 @@
   <script src="js/logo.js"></script>
   <script src="js/mutasi.js"></script>
   <script src="js/absensi.js"></script>
+  <script src="js/arsip.js"></script>
   <script src="js/jurnal.js"></script>
   <script src="js/pengguna.js"></script>
 </body>
