@@ -2,10 +2,10 @@
 <html lang="id">
 <head>
   <meta http-equiv="Content-Security-Policy" content="default-src 'self';
-           script-src 'self' https://cdn.tailwindcss.com https://cdn.jsdelivr.net;
+           script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net;
            style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
            font-src https://fonts.gstatic.com;
-           img-src 'self' data:;
+           img-src 'self' data: https:;
            connect-src 'self' https://*.supabase.co;">
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Masuk · Admin SDN Sukamahi 03</title>
@@ -14,18 +14,46 @@
   <script src="js/tailwind-config.js"></script>
   <script>try { if (localStorage.getItem('tema') === 'gelap') document.documentElement.classList.add('dark'); } catch (e) {}</script>
   <link rel="stylesheet" href="css/style.css">
+  <style>
+    .login-bg {
+      background-image: 
+        linear-gradient(135deg, rgba(34, 197, 94, 0.92) 0%, rgba(46, 139, 51, 0.88) 40%, rgba(28, 200, 118, 0.82) 100%),
+        url('src/gedung-sekolah.jpeg');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+    }
+    .login-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+    }
+  </style>
 </head>
-<body class="min-h-screen grid place-items-center p-4">
-  <main class="w-full max-w-sm bg-white rounded-2xl p-8 shadow-lg">
-    <h1 class="text-2xl font-extrabold text-hijau">SDN Sukamahi 03</h1>
-    <p class="text-sm text-ink/70 mb-6">Administrasi sekolah, Cikarang Pusat</p>
+<body class="min-h-screen login-bg flex items-center justify-center p-4 relative">
+  <!-- Logo di Pojok Kiri Atas -->
+  <div class="absolute top-4 left-4 sm:top-6 sm:left-6 flex items-center space-x-3 bg-white px-3.5 py-2 rounded-xl shadow-sm border border-ink/10 z-10">
+    <img src="src/logo-bekasi.png" alt="Logo Kab Bekasi" class="h-9 w-auto object-contain">
+    <div class="h-6 w-px bg-ink/20"></div>
+    <img src="src/logo.png" alt="Logo SDN Sukamahi 03" class="h-9 w-auto object-contain">
+  </div>
+  <main class="w-full max-w-sm login-card rounded-2xl p-8 shadow-2xl">
+    <div class="text-center mb-6">
+      <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-hijau/10 flex items-center justify-center">
+        <img src="src/logo-1.png" alt="Logo SDN Sukamahi 03" class="w-14 h-14 object-contain">
+      </div>
+      <h1 class="text-2xl font-extrabold text-hijau">SDN Sukamahi 03</h1>
+      <p class="text-sm text-ink/70 mt-1">Portal Administrasi Sekolah, Cikarang Pusat</p>
+    </div>
     <form id="form-login" class="space-y-4">
       <label class="block text-sm font-semibold">Email
-        <input id="email" type="email" required autocomplete="username" class="mt-1 w-full rounded-lg border border-ink/20 px-3 py-2"></label>
+        <input id="email" type="email" required autocomplete="username" class="mt-1 w-full rounded-lg border border-ink/20 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-hijau/50 focus:border-transparent"></label>
       <label class="block text-sm font-semibold">Kata sandi
-        <input id="password" type="password" required autocomplete="current-password" class="mt-1 w-full rounded-lg border border-ink/20 px-3 py-2"></label>
+        <input id="password" type="password" required autocomplete="current-password" class="mt-1 w-full rounded-lg border border-ink/20 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-hijau/50 focus:border-transparent"></label>
       <p id="error" class="text-sm text-red-700 hidden" role="alert"></p>
-      <button class="w-full rounded-lg bg-hijau text-white font-semibold py-2.5 hover:bg-ink">Masuk</button>
+      <button class="w-full rounded-lg bg-hijau text-white font-semibold py-2.5 hover:bg-ink transition-colors duration-200">Masuk</button>
     </form>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
