@@ -5,6 +5,7 @@ const BUKTI_IMG = ['image/jpeg', 'image/png'];
 let jurnalDaftar = [], jurnalEditId = null, jurnalUserId = null;
 const jUrlCache = new Map();
 const jGeoCache = new Map();
+let jBuktiViewer = null;
 
 const jIsImg = (j) => {
   const n = String(j.bukti_nama || j.bukti_path || '').toLowerCase();
@@ -17,6 +18,34 @@ async function jSignedUrl(path, detik) {
   if (error) throw error;
   jUrlCache.set(kunci, data.signedUrl);
   return data.signedUrl;
+}
+function jTampilkanBukti(url) {
+  if (!jBuktiViewer) {
+    const viewer = document.createElement('div');
+    viewer.id = 'j-bukti-viewer';
+    viewer.className = 'fixed inset-0 z-[100] bg-black/80 p-3 items-center justify-center';
+    viewer.style.display = 'none';
+    viewer.innerHTML = `<div class="flex max-h-full w-full max-w-5xl flex-col items-end gap-2">
+      <button type="button" data-tutup-bukti class="rounded-full bg-white px-3 py-1 text-lg font-bold text-ink" aria-label="Tutup foto">×</button>
+      <img alt="Bukti dukung ukuran penuh" style="display:block;max-width:100%;max-height:calc(95vh - 56px);object-fit:contain;border-radius:0.75rem;background:#111">
+    </div>`;
+    viewer.onclick = (event) => {
+      if (event.target === viewer || event.target.closest('[data-tutup-bukti]')) {
+        viewer.style.display = 'none';
+        viewer.querySelector('img').removeAttribute('src');
+      }
+    };
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && viewer.style.display !== 'none') {
+        viewer.style.display = 'none';
+        viewer.querySelector('img').removeAttribute('src');
+      }
+    });
+    document.body.appendChild(viewer);
+    jBuktiViewer = viewer;
+  }
+  jBuktiViewer.querySelector('img').src = url;
+  jBuktiViewer.style.display = 'flex';
 }
 async function jAlamatDariLokasi(lokasi) {
   const { data, error } = await sb.functions.invoke('geocode-maps', {
@@ -180,7 +209,7 @@ function renderJurnal() {
       <td ${sel} class="text-center">
         ${j.bukti_path && jIsImg(j)
           ? `<button data-j="bukti" data-id="${j.id}" class="block mx-auto text-center">
-               <img data-bukti-img="${j.id}" alt="Bukti ${i + 1}" crossorigin="anonymous" style="width:220px;height:165px;object-fit:cover;border:1px solid #000;display:block;margin:0 auto;background:#f3f4f6">
+               <img data-bukti-img="${j.id}" alt="Bukti ${i + 1}" crossorigin="anonymous" style="width:100%;max-width:240px;max-height:320px;height:auto;object-fit:contain;border:1px solid #000;display:block;margin:0 auto;background:#f3f4f6">
              </button>`
           : j.bukti_path
             ? `<button data-j="bukti" data-id="${j.id}" class="text-hijau font-semibold hover:underline">${esc(j.bukti_nama || 'Lihat bukti')}</button>`
@@ -200,7 +229,7 @@ function renderJurnal() {
       if (img) {
         img.src = url;
         img.onerror = () => { img.style.display = 'none'; };
-        img.onclick = (e) => { e.stopPropagation(); window.open(url, '_blank', 'noopener'); };
+        img.onclick = (e) => { e.stopPropagation(); jTampilkanBukti(url); };
       }
     } catch { /* biarkan tanpa gambar */ }
   });
@@ -216,8 +245,8 @@ function blokKegiatan(i, item) {
           <input name="waktu_${i}" placeholder="cth: 07.00 - 08.00" value="${esc(it.waktu || '')}" class="mt-1 w-full rounded-lg border border-ink/20 px-3 py-2 text-sm font-normal"></label>
         <label class="block text-sm font-semibold">Kegiatan
           <textarea name="kegiatan_${i}" rows="2" placeholder="Tulis kegiatan yang dilakukan" class="mt-1 w-full rounded-lg border border-ink/20 px-3 py-2 text-sm font-normal">${esc(it.kegiatan || '')}</textarea></label>
-        <label class="block text-sm font-semibold">Bukti dukung (foto JPG/PNG, maks 7 MB)
-          <input name="bukti_file_${i}" type="file" accept=".jpg,.jpeg,.png" capture="environment" class="mt-1 w-full text-sm" title="Ambil foto langsung dari kamera (HP maupun laptop)"></label>
+        <label class="block text-sm font-semibold">Bukti dukung (pilih foto dari galeri/file, JPG/PNG, maks 7 MB)
+          <input name="bukti_file_${i}" type="file" accept=".jpg,.jpeg,.png" class="mt-1 w-full text-sm" title="Pilih foto dari galeri atau file perangkat"></label>
         <button type="button" class="rounded-lg border border-ink/20 text-sm font-semibold px-3 py-1.5 hover:bg-kertas"
           data-buka-kamera="${i}">📷 Ambil dari kamera</button>
       </div>
@@ -321,6 +350,7 @@ function bukaModalKamera() {
           <p id="kamera-status" class="text-center text-xs text-ink/70" role="status" aria-live="polite">Menyiapkan kamera dan lokasi...</p>
         </div>
         <div class="flex flex-wrap items-center justify-end gap-2 px-4 py-3 border-t border-ink/10">
+          <button type="button" id="btn-ganti-kamera" class="hidden rounded-lg border border-ink/20 px-4 py-2 text-xs font-semibold hover:bg-kertas">Ganti kamera</button>
           <button type="button" id="btn-batal-kamera" class="rounded-lg border border-ink/20 px-4 py-2 text-xs font-semibold hover:bg-kertas">Batal</button>
           <button type="button" id="btn-ambil-foto" disabled class="rounded-lg bg-hijau text-white px-4 py-2 text-xs font-bold hover:bg-ink disabled:opacity-50">Ambil</button>
           <button type="button" id="btn-gunakan-foto" class="hidden rounded-lg bg-hijau px-4 py-2 text-xs font-bold hover:bg-ink">Gunakan</button>
@@ -331,11 +361,66 @@ function bukaModalKamera() {
     modalKamera = d;
     $('#btn-tutup-kamera').onclick = () => tutupModalKamera();
     $('#btn-batal-kamera').onclick = () => tutupModalKamera();
+    $('#btn-ganti-kamera').onclick = gantiKamera;
     $('#btn-ambil-foto').onclick = ambilFoto;
     $('#btn-gunakan-foto').onclick = pakaiFotoKamera;
     $('#btn-ulangi-foto').onclick = ulangiFotoKamera;
   }
   return modalKamera;
+}
+
+async function jPasangStreamKamera(k, facingMode) {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: { ideal: facingMode } },
+    audio: false,
+  });
+  if (kameraAktif !== k) {
+    stream.getTracks().forEach((t) => t.stop());
+    return false;
+  }
+  const video = document.getElementById('kamera-view');
+  if (!video) {
+    stream.getTracks().forEach((t) => t.stop());
+    return false;
+  }
+  k.stream = stream;
+  k.facingMode = facingMode;
+  video.srcObject = stream;
+  await video.play();
+  tampilkanModeLive();
+  return true;
+}
+
+async function gantiKamera() {
+  const k = kameraAktif;
+  if (!k || k.menggantiKamera) return;
+  const tombol = document.getElementById('btn-ganti-kamera');
+  const modeLama = k.facingMode || 'environment';
+  const modeBaru = modeLama === 'environment' ? 'user' : 'environment';
+  k.menggantiKamera = true;
+  if (tombol) tombol.disabled = true;
+  if (k.stream) k.stream.getTracks().forEach((t) => t.stop());
+  k.stream = null;
+  const video = document.getElementById('kamera-view');
+  if (video) video.srcObject = null;
+  try {
+    await jPasangStreamKamera(k, modeBaru);
+  } catch (error) {
+    if (k.stream) k.stream.getTracks().forEach((t) => t.stop());
+    k.stream = null;
+    try {
+      await jPasangStreamKamera(k, modeLama);
+    } catch (restoreError) {
+      jSetStatusKamera('Gagal mengganti kamera: ' + (restoreError.message || restoreError), 'error');
+      return;
+    }
+    jSetStatusKamera('Kamera lain tidak dapat dibuka: ' + (error.message || error), 'error');
+  } finally {
+    if (kameraAktif === k) {
+      k.menggantiKamera = false;
+      if (tombol) tombol.disabled = false;
+    }
+  }
 }
 
 async function bukaKamera(idx) {
@@ -380,18 +465,9 @@ async function bukaKamera(idx) {
       return null;
     }
   });
-  kameraAktif = { idx, stream: null, dibukaPada, lokasi: null, alamat: null, alamatError: null, lokasiPromise, alamatPromise };
+  kameraAktif = { idx, stream: null, facingMode: 'environment', dibukaPada, lokasi: null, alamat: null, alamatError: null, lokasiPromise, alamatPromise };
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
-    if (!kameraAktif || kameraAktif.dibukaPada !== dibukaPada) {
-      stream.getTracks().forEach((t) => t.stop());
-      return;
-    }
-    kameraAktif.stream = stream;
-    const video = document.getElementById('kamera-view');
-    video.srcObject = stream;
-    await video.play();
-    tampilkanModeLive();
+    await jPasangStreamKamera(kameraAktif, kameraAktif.facingMode);
   } catch (e) {
     tutupModalKamera();
     alert('Tidak bisa membuka kamera: ' + (e.message || e));
@@ -402,6 +478,7 @@ function tampilkanModeLive() {
   const preview = document.getElementById('kamera-preview');
   preview.classList.add('hidden');
   document.getElementById('kamera-view').classList.remove('hidden');
+  document.getElementById('btn-ganti-kamera').classList.remove('hidden');
   document.getElementById('btn-ambil-foto').classList.remove('hidden');
   document.getElementById('btn-gunakan-foto').classList.add('hidden');
   document.getElementById('btn-ulangi-foto').classList.add('hidden');
@@ -525,6 +602,7 @@ function tampilkanPreviewFoto() {
   preview.replaceChildren(img);
   preview.classList.remove('hidden');
   document.getElementById('kamera-view').classList.add('hidden');
+  document.getElementById('btn-ganti-kamera').classList.add('hidden');
   document.getElementById('btn-ambil-foto').classList.add('hidden');
   document.getElementById('btn-gunakan-foto').classList.remove('hidden');
   document.getElementById('btn-ulangi-foto').classList.remove('hidden');
@@ -695,7 +773,7 @@ async function cetakJurnal() {
       <td style="border:1px solid #000;padding:6px;vertical-align:top;white-space:nowrap">${esc(j.waktu || '')}</td>
       <td style="border:1px solid #000;padding:6px;vertical-align:top">${esc(j.kegiatan).replace(/\n/g, '<br>')}</td>
       <td style="border:1px solid #000;padding:8px;vertical-align:top;text-align:center">${foto[j.id]
-        ? `<img src="${foto[j.id]}" crossorigin="anonymous" style="width:240px;max-width:100%;height:auto;display:block;margin:0 auto;border:1px solid #000">`
+        ? `<img src="${foto[j.id]}" crossorigin="anonymous" style="width:240px;max-width:100%;max-height:320px;height:auto;object-fit:contain;display:block;margin:0 auto;border:1px solid #000">`
         : esc(j.bukti_nama || '')}</td>
       <td style="border:1px solid #000;padding:6px;vertical-align:top">${esc(j.keterangan || '')}</td>
     </tr>`).join('');
