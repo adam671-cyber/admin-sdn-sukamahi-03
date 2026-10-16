@@ -4,6 +4,7 @@ const BUKTI_MAX = 7 * 1048576;
 const BUKTI_IMG = ['image/jpeg', 'image/png'];
 let jurnalDaftar = [], jurnalEditId = null, jurnalUserId = null;
 const jUrlCache = new Map();
+const jGeoCache = new Map();
 
 const jIsImg = (j) => {
   const n = String(j.bukti_nama || j.bukti_path || '').toLowerCase();
@@ -16,6 +17,29 @@ async function jSignedUrl(path, detik) {
   if (error) throw error;
   jUrlCache.set(kunci, data.signedUrl);
   return data.signedUrl;
+}
+async function jAlamatDariLokasi(lokasi) {
+  const { data, error } = await sb.functions.invoke('geocode-maps', {
+    body: { lat: lokasi.latitude, lon: lokasi.longitude },
+  });
+  if (error) {
+    let pesan = error.message || 'Gagal menghubungi layanan alamat.';
+    if (error.context instanceof Response) {
+      const response = error.context.clone();
+      try {
+        const detail = await response.json();
+        if (detail && typeof detail.error === 'string') pesan = detail.error;
+      } catch {
+        pesan += ' (HTTP ' + response.status + ')';
+      }
+    }
+    throw new Error(pesan);
+  }
+  if (data && data.error) throw new Error(data.error);
+  if (!data || typeof data.address !== 'string' || !data.address.trim()) {
+    throw new Error('Alamat tidak ditemukan untuk koordinat ini.');
+  }
+  return data.address.trim();
 }
 
 const jTglVal = () => $('#j-tanggal').value || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
@@ -206,7 +230,7 @@ let modalKamera = null;  // elemen modal kamera yang sedang dipakai
 
 function hentikanKamera() {
   if (kameraAktif) {
-    kameraAktif.stream.getTracks().forEach((t) => t.stop());
+    if (kameraAktif.stream) kameraAktif.stream.getTracks().forEach((t) => t.stop());
     kameraAktif = null;
   }
 }
@@ -214,6 +238,69 @@ function hentikanKamera() {
 function tutupModalKamera() {
   hentikanKamera();
   if (modalKamera) { modalKamera.remove(); modalKamera = null; }
+}
+
+function jAmbilLokasi() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('Browser tidak mendukung lokasi GPS.'));
+      return;
+    }
+    let terbaik = null;
+    let watchId = null;
+    let selesai = false;
+    const batasAkurasi = 100;
+    const pesanAkurasiRendah = () => `Lokasi GPS terlalu tidak akurat (±${Math.round(terbaik.coords.accuracy).toLocaleString('id-ID')} m). Aktifkan Lokasi Presisi atau gunakan ponsel di area terbuka.`;
+    const timer = setTimeout(() => {
+      if (terbaik && terbaik.coords.accuracy <= batasAkurasi) selesaikan(terbaik);
+      else if (terbaik) gagal(new Error(pesanAkurasiRendah()));
+      else gagal(new Error('Waktu mencari lokasi habis.'));
+    }, 20000);
+    const bersihkan = () => {
+      clearTimeout(timer);
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    };
+    const selesaikan = (pos) => {
+      if (selesai) return;
+      selesai = true;
+      bersihkan();
+      resolve({
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+        accuracy: pos.coords.accuracy,
+      });
+    };
+    const gagal = (error) => {
+      if (selesai) return;
+      selesai = true;
+      bersihkan();
+      const pesan = error instanceof Error ? error.message
+        : error.code === 1 ? 'Izin lokasi ditolak.'
+          : error.code === 2 ? 'Lokasi GPS tidak tersedia.'
+            : 'Waktu mencari lokasi habis.';
+      reject(new Error(pesan));
+    };
+    watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        if (!terbaik || pos.coords.accuracy < terbaik.coords.accuracy) terbaik = pos;
+        if (pos.coords.accuracy <= 50) selesaikan(pos);
+      },
+      (error) => {
+        if (terbaik && terbaik.coords.accuracy <= batasAkurasi) selesaikan(terbaik);
+        else if (terbaik) gagal(new Error(pesanAkurasiRendah()));
+        else gagal(error);
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 25000 }
+    );
+  });
+}
+
+function jSetStatusKamera(pesan, status = 'info') {
+  const el = document.getElementById('kamera-status');
+  if (!el) return;
+  el.textContent = pesan;
+  el.classList.remove('text-ink/70', 'text-hijau', 'text-red-700');
+  el.classList.add(status === 'success' ? 'text-hijau' : status === 'error' ? 'text-red-700' : 'text-ink/70');
 }
 
 function bukaModalKamera() {
@@ -225,15 +312,17 @@ function bukaModalKamera() {
       <div class="bg-white rounded-xl w-full max-w-lg h-full max-h-[90vh] flex flex-col overflow-hidden">
         <div class="flex items-center justify-between px-4 py-2 border-b border-ink/10">
           <p class="mr-auto text-sm font-semibold">Ambil foto dari kamera</p>
-          <button type="button" class="rounded-lg p-1.5 text-ink/60 hover:bg-ink/10" title="Tutup">×</button>
+          <button type="button" id="btn-tutup-kamera" class="rounded-lg p-1.5 text-ink/60 hover:bg-ink/10" title="Tutup">×</button>
         </div>
-        <div class="flex-1 grid place-items-center bg-kertas p-4 overflow-auto">
-          <video id="kamera-view" muted playsinline class="max-h-[55vh] w-auto rounded-lg bg-black"></video>
+        <div class="flex-1 flex flex-col items-center justify-center gap-3 bg-kertas p-4 overflow-auto">
+          <video id="kamera-view" muted playsinline class="max-h-[55vh] max-w-full w-auto rounded-lg bg-black"></video>
           <div id="kamera-preview" class="hidden"></div>
+          <p class="text-center text-[11px] text-ink/60">Koordinat GPS dikirim ke Geocode Maps untuk mencari alamat. Nama jalan ditampilkan jika tersedia pada data peta.</p>
+          <p id="kamera-status" class="text-center text-xs text-ink/70" role="status" aria-live="polite">Menyiapkan kamera dan lokasi...</p>
         </div>
         <div class="flex flex-wrap items-center justify-end gap-2 px-4 py-3 border-t border-ink/10">
-          <button type="button" class="rounded-lg border border-ink/20 px-4 py-2 text-xs font-semibold hover:bg-kertas">Batal</button>
-          <button type="button" id="btn-ambil-foto" class="rounded-lg bg-hijau text-white px-4 py-2 text-xs font-bold hover:bg-ink">Ambil</button>
+          <button type="button" id="btn-batal-kamera" class="rounded-lg border border-ink/20 px-4 py-2 text-xs font-semibold hover:bg-kertas">Batal</button>
+          <button type="button" id="btn-ambil-foto" disabled class="rounded-lg bg-hijau text-white px-4 py-2 text-xs font-bold hover:bg-ink disabled:opacity-50">Ambil</button>
           <button type="button" id="btn-gunakan-foto" class="hidden rounded-lg bg-hijau px-4 py-2 text-xs font-bold hover:bg-ink">Gunakan</button>
           <button type="button" id="btn-ulangi-foto" class="hidden rounded-lg border border-ink/20 px-4 py-2 text-xs font-semibold hover:bg-kertas">Ulangi</button>
         </div>
@@ -255,10 +344,50 @@ async function bukaKamera(idx) {
     return;
   }
   hentikanKamera();
-  const d = bukaModalKamera();
+  bukaModalKamera();
+  const dibukaPada = new Date();
+  const lokasiPromise = jAmbilLokasi()
+    .then((lokasi) => {
+      if (kameraAktif && kameraAktif.dibukaPada === dibukaPada) {
+        kameraAktif.lokasi = lokasi;
+        jSetStatusKamera(`GPS siap (akurasi ±${Math.round(lokasi.accuracy)} m); mencari alamat melalui Geocode Maps...`);
+        $('#btn-ambil-foto').disabled = false;
+      }
+      return lokasi;
+    })
+    .catch((error) => {
+      if (kameraAktif && kameraAktif.dibukaPada === dibukaPada) {
+        kameraAktif.lokasi = null;
+        jSetStatusKamera(error.message + ' Foto tetap dapat diambil; watermark akan mencantumkan lokasi tidak tersedia.', 'error');
+        $('#btn-ambil-foto').disabled = false;
+      }
+      return null;
+    });
+  const alamatPromise = lokasiPromise.then(async (lokasi) => {
+    if (!lokasi) return null;
+    try {
+      const alamat = await jAlamatDariLokasi(lokasi);
+      if (kameraAktif && kameraAktif.dibukaPada === dibukaPada) {
+        kameraAktif.alamat = alamat;
+        jSetStatusKamera(`Alamat terdekat: ${alamat} (akurasi GPS ±${Math.round(lokasi.accuracy)} m)`, 'success');
+      }
+      return alamat;
+    } catch (error) {
+      if (kameraAktif && kameraAktif.dibukaPada === dibukaPada) {
+        kameraAktif.alamatError = error.message || String(error);
+        jSetStatusKamera('Alamat tidak tersedia: ' + kameraAktif.alamatError + '. Foto tetap dapat diambil dengan koordinat GPS.', 'error');
+      }
+      return null;
+    }
+  });
+  kameraAktif = { idx, stream: null, dibukaPada, lokasi: null, alamat: null, alamatError: null, lokasiPromise, alamatPromise };
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
-    kameraAktif = { idx, stream };
+    if (!kameraAktif || kameraAktif.dibukaPada !== dibukaPada) {
+      stream.getTracks().forEach((t) => t.stop());
+      return;
+    }
+    kameraAktif.stream = stream;
     const video = document.getElementById('kamera-view');
     video.srcObject = stream;
     await video.play();
@@ -282,11 +411,104 @@ async function ambilFoto() {
   const k = kameraAktif;
   if (!k) return;
   const video = document.getElementById('kamera-view');
-  if (!video.videoWidth) return;
+  if (!video.videoWidth) {
+    jSetStatusKamera('Kamera belum siap. Tunggu sebentar lalu coba lagi.', 'error');
+    return;
+  }
+  const lokasi = await k.lokasiPromise;
+  const alamat = await k.alamatPromise;
   const canvas = document.createElement('canvas');
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
-  canvas.getContext('2d').drawImage(video, 0, 0);
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0);
+  const waktuFoto = new Date();
+  const tanggal = new Intl.DateTimeFormat('id-ID', {
+    timeZone: 'Asia/Jakarta', day: 'numeric', month: 'long', year: 'numeric',
+  }).format(waktuFoto);
+  const hari = new Intl.DateTimeFormat('id-ID', {
+    timeZone: 'Asia/Jakarta', weekday: 'long',
+  }).format(waktuFoto);
+  const jam = new Intl.DateTimeFormat('id-ID', {
+    timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(waktuFoto);
+  const padding = Math.max(8, Math.round(canvas.width * 0.018));
+  const ukuranJam = Math.max(20, Math.min(72, Math.round(canvas.width * 0.085)));
+  const ukuranTeks = Math.max(12, Math.min(26, Math.round(canvas.width * 0.028)));
+  const jarak = Math.round(ukuranTeks * 1.25);
+  const lebarPanel = Math.round(canvas.width * 0.78);
+  const panelX = Math.round(canvas.width * 0.015);
+  const lebarTeks = lebarPanel - padding * 2;
+  const bungkusTeks = (teks, lebarMaks, batasBaris) => {
+    const baris = [];
+    let bagian = '';
+    let terpotong = false;
+    teks.split(/\s+/).forEach((kata) => {
+      if (terpotong) return;
+      const calon = bagian ? bagian + ' ' + kata : kata;
+      if (bagian && ctx.measureText(calon).width > lebarMaks) {
+        baris.push(bagian);
+        bagian = kata;
+        if (baris.length === batasBaris) terpotong = true;
+      } else {
+        bagian = calon;
+      }
+    });
+    if (!terpotong && bagian) baris.push(bagian);
+    if (terpotong && baris.length) {
+      let terakhir = baris[baris.length - 1];
+      while (terakhir && ctx.measureText(terakhir + '…').width > lebarMaks) {
+        terakhir = terakhir.slice(0, -1);
+      }
+      baris[baris.length - 1] = terakhir.trimEnd() + '…';
+    }
+    return baris;
+  };
+  ctx.font = `${ukuranJam}px sans-serif`;
+  const lebarJam = ctx.measureText(jam).width;
+  const waktuX = panelX + padding;
+  const garisX = Math.min(panelX + lebarPanel - padding * 2, waktuX + lebarJam + padding * 0.7);
+  const infoX = garisX + padding * 0.8;
+  const infoLebar = panelX + lebarPanel - infoX - padding;
+  ctx.font = `${ukuranTeks}px sans-serif`;
+  const barisTanggal = bungkusTeks(tanggal, infoLebar, 3);
+  const barisKeterangan = [...barisTanggal, hari];
+  const tinggiHeader = Math.max(ukuranJam, jarak * barisKeterangan.length);
+  const alamatTampil = alamat
+    ? 'Alamat: ' + alamat
+    : lokasi
+      ? `GPS: ${lokasi.latitude.toFixed(6)}, ${lokasi.longitude.toFixed(6)} (akurasi ±${Math.round(lokasi.accuracy)} m)`
+      : 'Alamat tidak tersedia';
+  const barisAlamat = bungkusTeks(alamatTampil, lebarTeks, 3);
+  const unitKerja = 'Unit Kerja: SDN SUKAMAHI 03';
+  const tinggiUnit = jarak + Math.round(padding * 0.6);
+  const jarakBagian = Math.round(padding * 0.65);
+  const tinggiPanel = padding + tinggiHeader + padding
+    + barisAlamat.length * jarak + jarakBagian + tinggiUnit + padding;
+  const panelY = Math.max(0, canvas.height - tinggiPanel - padding);
+  const gradasiLatar = ctx.createLinearGradient(panelX, panelY, panelX + lebarPanel, panelY);
+  gradasiLatar.addColorStop(0, 'rgba(0, 0, 0, 0.58)');
+  gradasiLatar.addColorStop(0.55, 'rgba(0, 0, 0, 0.3)');
+  gradasiLatar.addColorStop(1, 'rgba(0, 0, 0, 0.02)');
+  ctx.fillStyle = gradasiLatar;
+  ctx.fillRect(panelX, panelY, lebarPanel, tinggiPanel);
+  ctx.textBaseline = 'top';
+  const headerY = panelY + padding;
+  ctx.font = `${ukuranJam}px sans-serif`;
+  ctx.fillStyle = '#fff';
+  ctx.fillText(jam, waktuX, headerY + (tinggiHeader - ukuranJam) / 2);
+  ctx.fillStyle = '#fbbf24';
+  ctx.fillRect(garisX, headerY, Math.max(3, Math.round(ukuranTeks * 0.12)), tinggiHeader);
+  ctx.font = `${ukuranTeks}px sans-serif`;
+  ctx.fillStyle = '#fff';
+  barisKeterangan.forEach((teks, i) => ctx.fillText(teks, infoX, headerY + i * jarak));
+  const alamatY = headerY + tinggiHeader + padding;
+  barisAlamat.forEach((teks, i) => ctx.fillText(teks, waktuX, alamatY + i * jarak));
+  const unitY = alamatY + barisAlamat.length * jarak + jarakBagian;
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+  ctx.fillRect(panelX + padding / 2, unitY, lebarPanel - padding, tinggiUnit);
+  ctx.fillStyle = '#fff';
+  ctx.fillText(unitKerja, waktuX, unitY + Math.round(padding * 0.3));
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
   if (!blob) return alert('Gagal menangkap foto.');
   kameraAktif.preview = new File([blob], 'foto-' + Date.now() + '.jpg', { type: 'image/jpeg' });
@@ -299,6 +521,7 @@ function tampilkanPreviewFoto() {
   const preview = document.getElementById('kamera-preview');
   const img = document.createElement('img');
   img.src = URL.createObjectURL(kameraAktif.preview);
+  img.className = 'max-h-[55vh] max-w-full rounded-lg object-contain';
   preview.replaceChildren(img);
   preview.classList.remove('hidden');
   document.getElementById('kamera-view').classList.add('hidden');
