@@ -193,9 +193,140 @@ function blokKegiatan(i, item) {
         <label class="block text-sm font-semibold">Kegiatan
           <textarea name="kegiatan_${i}" rows="2" placeholder="Tulis kegiatan yang dilakukan" class="mt-1 w-full rounded-lg border border-ink/20 px-3 py-2 text-sm font-normal">${esc(it.kegiatan || '')}</textarea></label>
         <label class="block text-sm font-semibold">Bukti dukung (foto JPG/PNG, maks 7 MB)
-          <input name="bukti_file_${i}" type="file" accept=".jpg,.jpeg,.png" class="mt-1 w-full text-sm"></label>
+          <input name="bukti_file_${i}" type="file" accept=".jpg,.jpeg,.png" capture="environment" class="mt-1 w-full text-sm" title="Ambil foto langsung dari kamera (HP maupun laptop)"></label>
+        <button type="button" class="rounded-lg border border-ink/20 text-sm font-semibold px-3 py-1.5 hover:bg-kertas"
+          data-buka-kamera="${i}">📷 Ambil dari kamera</button>
       </div>
     </fieldset>`;
+}
+
+/* ---------- Kamera: ambil foto langsung dari webcam (desktop) ---------- */
+let kameraAktif = null;   // { idx, stream, preview } — null bila kamera ditutup
+let modalKamera = null;  // elemen modal kamera yang sedang dipakai
+
+function hentikanKamera() {
+  if (kameraAktif) {
+    kameraAktif.stream.getTracks().forEach((t) => t.stop());
+    kameraAktif = null;
+  }
+}
+
+function tutupModalKamera() {
+  hentikanKamera();
+  if (modalKamera) { modalKamera.remove(); modalKamera = null; }
+}
+
+function bukaModalKamera() {
+  if (!modalKamera) {
+    const d = document.createElement('div');
+    d.id = 'modal-kamera';
+    d.className = 'fixed inset-0 z-[70] bg-black/60 p-3 sm:p-6 flex items-center justify-center';
+    d.innerHTML = `
+      <div class="bg-white rounded-xl w-full max-w-lg h-full max-h-[90vh] flex flex-col overflow-hidden">
+        <div class="flex items-center justify-between px-4 py-2 border-b border-ink/10">
+          <p class="mr-auto text-sm font-semibold">Ambil foto dari kamera</p>
+          <button type="button" class="rounded-lg p-1.5 text-ink/60 hover:bg-ink/10" title="Tutup">×</button>
+        </div>
+        <div class="flex-1 grid place-items-center bg-kertas p-4 overflow-auto">
+          <video id="kamera-view" muted playsinline class="max-h-[55vh] w-auto rounded-lg bg-black"></video>
+          <div id="kamera-preview" class="hidden"></div>
+        </div>
+        <div class="flex flex-wrap items-center justify-end gap-2 px-4 py-3 border-t border-ink/10">
+          <button type="button" class="rounded-lg border border-ink/20 px-4 py-2 text-xs font-semibold hover:bg-kertas">Batal</button>
+          <button type="button" id="btn-ambil-foto" class="rounded-lg bg-hijau text-white px-4 py-2 text-xs font-bold hover:bg-ink">Ambil</button>
+          <button type="button" id="btn-gunakan-foto" class="hidden rounded-lg bg-hijau px-4 py-2 text-xs font-bold hover:bg-ink">Gunakan</button>
+          <button type="button" id="btn-ulangi-foto" class="hidden rounded-lg border border-ink/20 px-4 py-2 text-xs font-semibold hover:bg-kertas">Ulangi</button>
+        </div>
+      </div>`;
+    document.body.appendChild(d);
+    modalKamera = d;
+    $('#btn-tutup-kamera').onclick = () => tutupModalKamera();
+    $('#btn-batal-kamera').onclick = () => tutupModalKamera();
+    $('#btn-ambil-foto').onclick = ambilFoto;
+    $('#btn-gunakan-foto').onclick = pakaiFotoKamera;
+    $('#btn-ulangi-foto').onclick = ulangiFotoKamera;
+  }
+  return modalKamera;
+}
+
+async function bukaKamera(idx) {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    alert('Browser tidak mendukung pengambilan dari kamera. Buka mode HP, atau gunakan fitur pilih file.');
+    return;
+  }
+  hentikanKamera();
+  const d = bukaModalKamera();
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+    kameraAktif = { idx, stream };
+    const video = document.getElementById('kamera-view');
+    video.srcObject = stream;
+    await video.play();
+    tampilkanModeLive();
+  } catch (e) {
+    tutupModalKamera();
+    alert('Tidak bisa membuka kamera: ' + (e.message || e));
+  }
+}
+
+function tampilkanModeLive() {
+  const preview = document.getElementById('kamera-preview');
+  preview.classList.add('hidden');
+  document.getElementById('kamera-view').classList.remove('hidden');
+  document.getElementById('btn-ambil-foto').classList.remove('hidden');
+  document.getElementById('btn-gunakan-foto').classList.add('hidden');
+  document.getElementById('btn-ulangi-foto').classList.add('hidden');
+}
+
+async function ambilFoto() {
+  const k = kameraAktif;
+  if (!k) return;
+  const video = document.getElementById('kamera-view');
+  if (!video.videoWidth) return;
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+  if (!blob) return alert('Gagal menangkap foto.');
+  kameraAktif.preview = new File([blob], 'foto-' + Date.now() + '.jpg', { type: 'image/jpeg' });
+  tampilkanPreviewFoto();
+}
+
+function tampilkanPreviewFoto() {
+  const k = kameraAktif;
+  if (!k || !kameraAktif.preview) return;
+  const preview = document.getElementById('kamera-preview');
+  const img = document.createElement('img');
+  img.src = URL.createObjectURL(kameraAktif.preview);
+  preview.replaceChildren(img);
+  preview.classList.remove('hidden');
+  document.getElementById('kamera-view').classList.add('hidden');
+  document.getElementById('btn-ambil-foto').classList.add('hidden');
+  document.getElementById('btn-gunakan-foto').classList.remove('hidden');
+  document.getElementById('btn-ulangi-foto').classList.remove('hidden');
+}
+
+function pakaiFotoKamera() {
+  const k = kameraAktif;
+  if (!k || !kameraAktif.preview) return;
+  const input = document.querySelector('input[name="bukti_file_' + k.idx + '"]');
+  if (!input) return;
+  const dt = new DataTransfer();
+  dt.items.add(kameraAktif.preview);
+  input.files = dt.files;
+  tutupModalKamera();
+}
+
+function ulangiFotoKamera() {
+  const k = kameraAktif;
+  if (!k) return;
+  const preview = document.getElementById('kamera-preview');
+  preview.classList.add('hidden');
+  document.getElementById('btn-ambil-foto').classList.remove('hidden');
+  document.getElementById('btn-gunakan-foto').classList.add('hidden');
+  document.getElementById('btn-ulangi-foto').classList.add('hidden');
+  bukaKamera(k.idx);
 }
 
 function bukaFormJurnal(item) {
@@ -476,6 +607,10 @@ $('#j-tanggal').onchange = muatJurnal;
 $('#j-ttd-hide').onchange = jTerapkanTtdManual;
 $('#j-pemilik').onchange = (e) => { jurnalUserId = e.target.value || null; muatJurnal(); };
 $('#j-tambah').onclick = () => bukaFormJurnal(null);
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-buka-kamera]');
+  if (b) bukaKamera(Number(b.dataset.bukaKamera));
+});
 const jAksiBtn = $('#j-aksi'), jAksiMenu = $('#j-aksi-menu');
 if (jAksiBtn && jAksiMenu) {
   jAksiBtn.onclick = (e) => { e.stopPropagation(); jAksiMenu.classList.toggle('hidden'); };
