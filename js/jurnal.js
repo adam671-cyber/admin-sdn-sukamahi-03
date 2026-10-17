@@ -89,6 +89,13 @@ async function jSignedUrl(path, detik) {
   jUrlCache.set(kunci, data.signedUrl);
   return data.signedUrl;
 }
+/* Versi ringan (transformasi Supabase) agar thumbnail tidak mengunduh foto asli penuh */
+function jThumbUrl(url, lebar = 720, mutu = 70) {
+  if (typeof url !== 'string') return url;
+  if (url.includes('/object/sign/')) return url.replace('/object/sign/', '/render/image/sign/') + '&width=' + lebar + '&quality=' + mutu;
+  if (url.includes('/object/public/')) return url.replace('/object/public/', '/render/image/public/') + '?width=' + lebar + '&quality=' + mutu;
+  return url;
+}
 function jTampilkanBukti(url) {
   if (!jBuktiViewer) {
     const viewer = document.createElement('div');
@@ -280,7 +287,7 @@ function renderJurnal() {
       <td ${sel} class="text-center">
         ${j.bukti_path && jIsImg(j)
           ? `<button data-j="bukti" data-id="${j.id}" class="block mx-auto text-center">
-               <img data-bukti-img="${j.id}" alt="Bukti ${i + 1}" crossorigin="anonymous" style="width:100%;max-width:240px;max-height:320px;height:auto;object-fit:contain;border:1px solid #000;display:block;margin:0 auto;background:#f3f4f6">
+               <img data-bukti-img="${j.id}" alt="Bukti ${i + 1}" loading="lazy" decoding="async" crossorigin="anonymous" style="width:100%;max-width:240px;max-height:320px;height:auto;object-fit:contain;border:1px solid #000;display:block;margin:0 auto;background:#f3f4f6">
              </button>`
           : j.bukti_path
             ? `<button data-j="bukti" data-id="${j.id}" class="text-hijau font-semibold hover:underline">${esc(j.bukti_nama || 'Lihat bukti')}</button>`
@@ -298,7 +305,7 @@ function renderJurnal() {
       const url = await jSignedUrl(j.bukti_path, 3600);
       const img = tb.querySelector(`img[data-bukti-img="${j.id}"]`);
       if (img) {
-        img.src = url;
+        img.src = jThumbUrl(url);
         img.onerror = () => { img.style.display = 'none'; };
         img.onclick = (e) => { e.stopPropagation(); jTampilkanBukti(url); };
       }
@@ -838,7 +845,7 @@ async function cetakJurnal() {
   const foto = {};
   await Promise.all(jurnalDaftar.map(async (j) => {
     if (j.bukti_path && jIsImg(j)) {
-      try { foto[j.id] = await jSignedUrl(j.bukti_path, 3600); } catch { /* tanpa foto */ }
+      try { foto[j.id] = jThumbUrl(await jSignedUrl(j.bukti_path, 3600), 1080, 80); } catch { /* tanpa foto */ }
     }
   }));
   const baris = jurnalDaftar.map((j, i) => `
