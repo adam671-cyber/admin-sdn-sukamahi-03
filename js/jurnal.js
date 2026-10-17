@@ -10,6 +10,77 @@ const jIsImg = (j) => {
   const n = String(j.bukti_nama || j.bukti_path || '').toLowerCase();
   return n.endsWith('.jpg') || n.endsWith('.jpeg') || n.endsWith('.png');
 };
+
+/* ---------- Kompresi gambar: hemat storage, hasil tetap jelas ---------- */
+const J_BUKTI_MAX_BYTES = 300 * 1024; // ±300 KB per foto bukti
+async function jMuatGambarSumber(file) {
+  if (typeof createImageBitmap === 'function') {
+    try { return await createImageBitmap(file); } catch { /* lanjut ke fallback */ }
+  }
+  return await new Promise((selesai, gagal) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); selesai(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); gagal(new Error('Gagal membaca gambar.')); };
+    img.src = url;
+  });
+}
+function jSkalaKanvas(sumber, lebar, tinggi) {
+  const kanvas = document.createElement('canvas');
+  kanvas.width = Math.max(1, Math.round(lebar));
+  kanvas.height = Math.max(1, Math.round(tinggi));
+  const ctx = kanvas.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, kanvas.width, kanvas.height);
+  ctx.drawImage(sumber, 0, 0, kanvas.width, kanvas.height);
+  return kanvas;
+}
+function jKanvasDiBawah(sumber, maxDim) {
+  const w = sumber.width, h = sumber.height;
+  const rasio = Math.min(1, maxDim / Math.max(w, h));
+  return jSkalaKanvas(sumber, w * rasio, h * rasio);
+}
+const jKanvasKeJpeg = (kanvas, kualitas) => new Promise((selesai) => kanvas.toBlob(selesai, 'image/jpeg', kualitas));
+/* Turunkan kualitas JPEG bertahap + perkecil dimensi sampai di bawah batas ukuran. */
+async function jKanvasKeBlobMaks(kanvas, maxBytes, kualitasAwal = 0.9) {
+  let k = kanvas;
+  let blob = await jKanvasKeJpeg(k, kualitasAwal);
+  for (let putaran = 0; blob && blob.size > maxBytes && putaran < 8; putaran++) {
+    let kualitas = kualitasAwal;
+    while (kualitas > 0.45) {
+      kualitas = Math.round((kualitas - 0.08) * 100) / 100;
+      blob = await jKanvasKeJpeg(k, kualitas);
+      if (blob && blob.size <= maxBytes) return blob;
+    }
+    const faktor = Math.max(0.5, Math.sqrt(maxBytes / blob.size) * 0.9);
+    k = jSkalaKanvas(k, k.width * faktor, k.height * faktor);
+    blob = await jKanvasKeJpeg(k, 0.82);
+  }
+  return blob;
+}
+/* Pilih-file / kamera: perkecil sisi terpanjang lalu encode JPEG hemat ukuran. */
+async function jKompresFileFoto(file, { maxDim = 1600, maxBytes = 300 * 1024 } = {}) {
+  if (!file) return null;
+  const sumber = await jMuatGambarSumber(file);
+  const kanvas = jKanvasDiBawah(sumber, maxDim);
+  const blob = await jKanvasKeBlobMaks(kanvas, maxBytes);
+  if (!blob) return file;
+  const nama = String(file.name || 'foto').replace(/\.[^.]+$/, '') + '.jpg';
+  return new File([blob], nama, { type: 'image/jpeg', lastModified: Date.now() });
+}
+
+/* ---------- Unduhan PDF/JPG: target di bawah 400 KB ---------- */
+const J_UNDUH_MAX_BYTES = 400 * 1024;
+const jSkalaKanvasDariElemen = (el, skala) => html2canvas(el, {
+  scale: skala, useCORS: true, backgroundColor: '#ffffff', logging: false,
+  scrollX: 0, scrollY: 0, width: el.scrollWidth, height: el.scrollHeight,
+  windowWidth: el.scrollWidth, windowHeight: el.scrollHeight,
+});
+const jBlobKeDataUrl = (blob) => new Promise((selesai) => {
+  const fr = new FileReader();
+  fr.onload = () => selesai(fr.result);
+  fr.readAsDataURL(blob);
+});
 async function jSignedUrl(path, detik) {
   const kunci = path + '|' + (detik || 3600);
   if (jUrlCache.has(kunci)) return jUrlCache.get(kunci);
@@ -196,6 +267,7 @@ function renderJurnal() {
   const tglTxt = jHariTgl(jTglVal());
   $('#j-jumlah').textContent = jurnalDaftar.length + '/3 kegiatan pada ' + tglTxt + ' (1 hari full 3 kegiatan)';
   const sel = 'style="border:1px solid #000;padding:6px;vertical-align:top"';
+  const selKeg = 'style="border:1px solid #000;padding:6px;vertical-align:top;text-align:justify"';
   if (!jurnalDaftar.length) {
     tb.innerHTML = `<tr><td colspan="6" ${sel} class="text-center text-ink/50" style="border:1px solid #000;padding:24px;text-align:center">Belum ada kegiatan. Klik "Tambah jurnal harian" untuk mengisi 3 kegiatan sekaligus.</td></tr>`;
     return;
@@ -204,7 +276,7 @@ function renderJurnal() {
     <tr>
       <td ${sel} class="text-center tabular-nums">${i + 1}.</td>
       <td ${sel} class="whitespace-nowrap">${esc(j.waktu || '-')}</td>
-      <td ${sel} class="whitespace-pre-wrap">${esc(j.kegiatan)}</td>
+      <td ${selKeg} class="whitespace-pre-wrap">${esc(j.kegiatan)}</td>
       <td ${sel} class="text-center">
         ${j.bukti_path && jIsImg(j)
           ? `<button data-j="bukti" data-id="${j.id}" class="block mx-auto text-center">
@@ -243,10 +315,10 @@ function blokKegiatan(i, item) {
         <label class="block text-sm font-semibold">Waktu
           <input name="waktu_${i}" placeholder="cth: 07.00 - 08.00" value="${esc(it.waktu || '')}" class="mt-1 w-full rounded-lg border border-ink/20 px-3 py-2 text-sm font-normal"></label>
         <label class="block text-sm font-semibold">Kegiatan
-          <textarea name="kegiatan_${i}" rows="2" placeholder="Tulis kegiatan yang dilakukan" class="mt-1 w-full rounded-lg border border-ink/20 px-3 py-2 text-sm font-normal">${esc(it.kegiatan || '')}</textarea></label>
-        <label class="block text-sm font-semibold">Bukti dukung (pilih foto dari galeri/file, JPG/PNG, maks 7 MB)
+          <textarea name="kegiatan_${i}" rows="2" placeholder="Tulis kegiatan yang dilakukan" style="text-align:justify" class="mt-1 w-full rounded-lg border border-ink/20 px-3 py-2 text-sm font-normal">${esc(it.kegiatan || '')}</textarea></label>
+        <label class="block text-sm font-semibold">Bukti dukung (foto dari galeri/file, JPG/PNG — otomatis dikompres)
           <input name="bukti_file_${i}" type="file" accept=".jpg,.jpeg,.png" class="mt-1 w-full text-sm" title="Pilih foto dari galeri atau file perangkat"></label>
-        <button type="button" class="rounded-lg border border-ink/20 text-sm font-semibold px-3 py-1.5 hover:bg-kertas"
+        <button type="button" class="w-full rounded-lg border border-ink/20 text-sm font-semibold px-3 py-1.5 hover:bg-kertas"
           data-buka-kamera="${i}">📷 Ambil dari kamera</button>
       </div>
     </fieldset>`;
@@ -585,7 +657,7 @@ async function ambilFoto() {
   ctx.fillRect(panelX + padding / 2, unitY, lebarPanel - padding, tinggiUnit);
   ctx.fillStyle = '#fff';
   ctx.fillText(unitKerja, waktuX, unitY + Math.round(padding * 0.3));
-  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+  const blob = await jKanvasKeBlobMaks(canvas, J_BUKTI_MAX_BYTES, 0.85);
   if (!blob) return alert('Gagal menangkap foto.');
   kameraAktif.preview = new File([blob], 'foto-' + Date.now() + '.jpg', { type: 'image/jpeg' });
   tampilkanPreviewFoto();
@@ -672,8 +744,9 @@ async function simpanJurnal() {
     if (jurnalEditId) {
       const lama = jurnalDaftar.find((j) => String(j.id) === String(jurnalEditId)) || {};
       let bukti_path = lama.bukti_path || null, bukti_nama = lama.bukti_nama || null;
-      const file = validFoto(fd.get('bukti_file_0'));
+      let file = validFoto(fd.get('bukti_file_0'));
       if (file) {
+        file = await jKompresFileFoto(file, { maxBytes: J_BUKTI_MAX_BYTES });
         const path = session.user.id + '/' + Date.now() + '-' + file.name.replace(/[^\w.\-]+/g, '_');
         const { error } = await sb.storage.from(BUKTI_BUCKET).upload(path, file, { contentType: file.type });
         if (error) throw error;
@@ -702,9 +775,10 @@ async function simpanJurnal() {
         if (fd.get('kegiatan_' + i) === null) continue;
         const kegiatan = String(fd.get('kegiatan_' + i) || '').trim();
         if (!kegiatan) continue;
-        const file = validFoto(fd.get('bukti_file_' + i));
+        let file = validFoto(fd.get('bukti_file_' + i));
         let bukti_path = null, bukti_nama = null;
         if (file) {
+          file = await jKompresFileFoto(file, { maxBytes: J_BUKTI_MAX_BYTES });
           const path = session.user.id + '/' + Date.now() + '-' + i + '-' + file.name.replace(/[^\w.\-]+/g, '_');
           const { error } = await sb.storage.from(BUKTI_BUCKET).upload(path, file, { contentType: file.type });
           if (error) throw error;
@@ -771,7 +845,7 @@ async function cetakJurnal() {
     <tr>
       <td style="border:1px solid #000;padding:6px;text-align:center;vertical-align:top">${i + 1}.</td>
       <td style="border:1px solid #000;padding:6px;vertical-align:top;white-space:nowrap">${esc(j.waktu || '')}</td>
-      <td style="border:1px solid #000;padding:6px;vertical-align:top">${esc(j.kegiatan).replace(/\n/g, '<br>')}</td>
+      <td style="border:1px solid #000;padding:6px;vertical-align:top;text-align:justify">${esc(j.kegiatan).replace(/\n/g, '<br>')}</td>
       <td style="border:1px solid #000;padding:8px;vertical-align:top;text-align:center">${foto[j.id]
         ? `<img src="${foto[j.id]}" crossorigin="anonymous" style="width:240px;max-width:100%;max-height:320px;height:auto;object-fit:contain;display:block;margin:0 auto;border:1px solid #000">`
         : esc(j.bukti_nama || '')}</td>
@@ -782,7 +856,7 @@ async function cetakJurnal() {
     body{font-family:'Times New Roman',serif;color:#000;margin:24px}
     table{border-collapse:collapse;width:100%}
     @page{size:215mm 330mm;margin:12mm}</style></head><body>
-    <h3 style="text-align:center;margin:0 0 12px">JURNAL KERJA HARIAN</h3>
+    <h3 style="text-align:center;margin:0 0 14px">JURNAL KERJA HARIAN</h3>
     <table style="margin-bottom:0"><tr>
       <td style="border:1px solid #000;padding:8px;width:70%;font-size:11pt;line-height:1.6">
         <table style="border-collapse:collapse;width:100%;font-size:11pt;line-height:1.6">
@@ -795,11 +869,11 @@ async function cetakJurnal() {
       </td><td style="border:1px solid #000;padding:8px;width:30%"></td>
     </tr></table>
     <table style="margin-top:-1px"><thead><tr style="background:#8fd18f">
-      <th style="border:1px solid #000;padding:6px;width:36px">No</th>
-      <th style="border:1px solid #000;padding:6px;width:90px">Waktu</th>
-      <th style="border:1px solid #000;padding:6px">Kegiatan</th>
-      <th style="border:1px solid #000;padding:6px;width:260px">Bukti Dukung</th>
-      <th style="border:1px solid #000;padding:6px;width:70px">Ket</th>
+      <th style="border:1px solid #000;padding:6px;width:36px;vertical-align:middle">No</th>
+      <th style="border:1px solid #000;padding:6px;width:90px;vertical-align:middle">Waktu</th>
+      <th style="border:1px solid #000;padding:6px;vertical-align:middle">Kegiatan</th>
+      <th style="border:1px solid #000;padding:6px;width:260px;vertical-align:middle">Bukti Dukung</th>
+      <th style="border:1px solid #000;padding:6px;width:70px;vertical-align:middle">Ket</th>
     </tr></thead><tbody>${baris}</tbody></table>
     <div style="display:flex;justify-content:flex-end;margin-top:24px;font-size:11pt">
       <div style="text-align:left">Cikarang Pusat, ${esc(tglTtd)}<br>Dibuat oleh:<br>
@@ -842,6 +916,12 @@ function jSiapkanKlonCetak() {
   });
   klon.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff;padding:24px 24px 72px;font-family:"Times New Roman",serif;color:#000';
   klon.querySelectorAll('.overflow-x-auto').forEach((el) => { el.style.overflow = 'visible'; });
+  // html2canvas mengabaikan vertical-align pada header; tambah padding bawah agar teks pas di tengah
+  klon.querySelectorAll('thead th').forEach((th) => {
+    th.style.padding = '6px 6px 22px';
+    th.style.verticalAlign = 'middle';
+    th.style.textAlign = 'center';
+  });
   const ttd = klon.querySelector('.flex.justify-end');
   if (ttd) ttd.style.cssText = 'display:flex;justify-content:flex-end;margin-top:24px;margin-bottom:24px;padding-bottom:24px;break-inside:avoid;page-break-inside:avoid';
   document.body.appendChild(klon);
@@ -865,13 +945,21 @@ async function unduhJurnalPNG() {
   try {
     await jTungguGambarKlon(klon);
     await new Promise((r) => setTimeout(r, 150));
-    const canvas = await html2canvas(klon, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false, scrollX: 0, scrollY: 0, width: klon.scrollWidth, height: klon.scrollHeight, windowWidth: klon.scrollWidth, windowHeight: klon.scrollHeight });
+    let kanvas = await jSkalaKanvasDariElemen(klon, 2);
+    let blob = await jKanvasKeBlobMaks(kanvas, J_UNDUH_MAX_BYTES, 0.92);
+    if (blob && blob.size > J_UNDUH_MAX_BYTES) {
+      kanvas = await jSkalaKanvasDariElemen(klon, 1.35);
+      blob = await jKanvasKeBlobMaks(kanvas, J_UNDUH_MAX_BYTES, 0.9);
+    }
+    if (!blob) throw new Error('Gagal membuat gambar.');
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.download = jNamaFile('png');
-    a.href = canvas.toDataURL('image/png');
+    a.download = jNamaFile('jpg');
+    a.href = url;
     a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   } catch (e) {
-    alert('Gagal mengunduh PNG: ' + (e.message || e));
+    alert('Gagal mengunduh gambar: ' + (e.message || e));
   } finally {
     klon.remove();
   }
@@ -885,10 +973,15 @@ async function unduhJurnalPDF() {
   try {
     await jTungguGambarKlon(klon);
     await new Promise((r) => setTimeout(r, 150));
-    const canvas = await html2canvas(klon, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false, scrollX: 0, scrollY: 0, width: klon.scrollWidth, height: klon.scrollHeight, windowWidth: klon.scrollWidth, windowHeight: klon.scrollHeight });
-    const img = canvas.toDataURL('image/jpeg', 0.95);
-    const pdf = new jspdfLib({ unit: 'mm', format: [215, 330], orientation: 'portrait' });
-    const margin = 10, lebar = 215 - margin * 2, tinggi = (canvas.height * lebar) / canvas.width;
+    let kanvas = await jSkalaKanvasDariElemen(klon, 2);
+    let blob = await jKanvasKeBlobMaks(kanvas, J_UNDUH_MAX_BYTES, 0.9);
+    if (blob && blob.size > J_UNDUH_MAX_BYTES) {
+      kanvas = await jSkalaKanvasDariElemen(klon, 1.35);
+      blob = await jKanvasKeBlobMaks(kanvas, J_UNDUH_MAX_BYTES, 0.85);
+    }
+    const img = await jBlobKeDataUrl(blob);
+    const pdf = new jspdfLib({ unit: 'mm', format: [215, 330], orientation: 'portrait', compress: true });
+    const margin = 10, lebar = 215 - margin * 2, tinggi = (kanvas.height * lebar) / kanvas.width;
     let sisa = tinggi, y = 0, halaman = 0;
     while (sisa > 0) {
       if (halaman > 0) pdf.addPage([215, 330], 'portrait');
