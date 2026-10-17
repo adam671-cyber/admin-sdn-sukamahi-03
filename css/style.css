@@ -30,10 +30,26 @@ td[contenteditable]:focus { background: #fff8e1; outline: 2px solid #E3A72F; }
 
 .app-main { margin-left: var(--side-closed); transition: margin-left .25s ease; }
 
+/* Bottom navigation — tampil hanya di layar HP (lihat media query di bawah) */
+.bottomnav { display: none; }
+
 body[data-side="open"] .sidebar { width: var(--side-open); }
 body[data-side="open"] .app-main { margin-left: var(--side-open); }
 @media (max-width: 767px) { body[data-side="open"] .app-main { margin-left: var(--side-closed); }
   body[data-side="open"] .sidebar { box-shadow: 0 0 0 999px rgba(0,0,0,.45); }
+  /* HP: ganti menu rel samping dengan bottom navigation agar konten lebih lebar */
+  #sidebar { display: none; }
+  .app-main { margin-left: 0 !important; }
+  body { padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px)); }
+  #bottomnav { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 45;
+    background: #14231D; border-top: 1px solid rgba(255,255,255,.1);
+    padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .bn-item { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 3px; height: 56px; padding: 6px 2px; color: rgba(255,255,255,.62);
+    font-size: 10px; font-weight: 600; line-height: 1; text-decoration: none; }
+  .bn-item svg { width: 22px; height: 22px; flex: none; }
+  .bn-item[data-active="true"] { color: #E3A72F; }
+  .bn-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .topbar { padding: 0 12px; gap: 10px; }
   .app-main main { padding-left: 10px; padding-right: 10px; overflow-x: clip; }
   #view-dashboard [data-naik] { animation-duration: .5s; }
@@ -43,6 +59,21 @@ body[data-side="open"] .app-main { margin-left: var(--side-open); }
   #j-laporan { padding: 12px; }
   #j-laporan table { font-size: 11px; }
   #j-laporan > div.overflow-x-auto > table { min-width: 560px; }
+  /* Toolbar Jurnal di HP: kompak & simetris (desktop tidak terpengaruh) */
+  #j-toolbar { align-items: stretch; gap: 8px; }
+  #j-toolbar > div:first-child { flex: 1 1 100%; }
+  #j-toolbar h2 { font-size: 1rem; }
+  #j-toolbar #j-identitas { font-size: 11px; margin-top: 2px; }
+  #j-toolbar label { flex: 1 1 100%; font-size: 12px; }
+  #j-toolbar input[type="date"] { flex: 1; padding: 5px 8px; }
+  /* TTD manual pindah ke posisi Aksi; Tambah jadi tombol utama paling besar (selebar penuh) */
+  #j-toolbar .j-ttd { order: 1; flex: 0 0 40%; min-width: 0; justify-content: center; padding: 6px 8px; white-space: nowrap; }
+  #j-toolbar > div.relative { order: 2; flex: 1 1 auto; min-width: 0; display: flex; }
+  #j-toolbar #j-tambah { order: 3; flex: 1 1 100%; }
+  #j-toolbar #j-tambah, #j-toolbar #j-aksi { display: flex; align-items: center; justify-content: center;
+    width: 100%; font-size: 12px; padding: 7px 10px; line-height: 1.2; text-align: center; }
+  #j-toolbar #j-aksi { flex: 1; }
+  #j-toolbar #j-tambah { padding: 10px; font-size: 13px; }
   .overflow-x-auto { -webkit-overflow-scrolling: touch; }
   #form-chat { flex-wrap: wrap; }
   #form-chat button { flex: none; }

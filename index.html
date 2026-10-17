@@ -125,6 +125,60 @@
     </nav>
   </aside>
 
+  <!-- Bottom navigation (khusus layar HP) -->
+  <nav id="bottomnav" class="bottomnav" aria-label="Menu bawah">
+    <a href="#dashboard" data-nav="dashboard" class="bn-item" title="Dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+        <rect x="3" y="3" width="7" height="9" rx="1.5" />
+        <rect x="14" y="3" width="7" height="5" rx="1.5" />
+        <rect x="14" y="12" width="7" height="9" rx="1.5" />
+        <rect x="3" y="16" width="7" height="5" rx="1.5" />
+      </svg>
+      <span class="bn-label">Dashboard</span>
+    </a>
+    <a href="#guru" data-nav="guru" class="bn-item" title="Pegawai">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="8" r="3.5" />
+        <path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14.2a6.5 6.5 0 0 1 3.5 5.8" />
+      </svg>
+      <span class="bn-label">Pegawai</span>
+    </a>
+    <a href="#mutasi-masuk" data-nav="mutasi-masuk" class="bn-item" title="Mutasi">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M7 7h13l-3-3M17 17H4l3 3" />
+      </svg>
+      <span class="bn-label">Mutasi</span>
+    </a>
+    <a href="#absensi" data-nav="absensi" class="bn-item" title="Absensi">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="17" rx="2" />
+        <path d="M8 2v4M16 2v4M3 9h18" />
+      </svg>
+      <span class="bn-label">Absensi</span>
+    </a>
+    <a href="#arsip" data-nav="arsip" class="bn-item" title="Arsip">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="5" rx="1.5" />
+        <path d="M5 9v10h14V9M10 13h4" />
+      </svg>
+      <span class="bn-label">Arsip</span>
+    </a>
+    <a href="#jurnal" data-nav="jurnal" class="bn-item" title="Jurnal Harian">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+        <path d="M5 3h11l3 3v15H5z" />
+        <path d="M9 8h6M9 12h6M9 16h4" />
+      </svg>
+      <span class="bn-label">Jurnal</span>
+    </a>
+    <a href="#pengguna" data-nav="pengguna" class="bn-item hidden" title="Pengguna">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="8" r="3.5" />
+        <path d="M5 20a7 7 0 0 1 14 0" />
+      </svg>
+      <span class="bn-label">Pengguna</span>
+    </a>
+  </nav>
+
   <div class="app-main">
 
     <main class="max-w-7xl mx-auto p-3">
@@ -413,7 +467,7 @@
       <!-- JURNAL HARIAN -->
       <section id="view-jurnal" class="hidden space-y-3">
         <article class="rounded-xl bg-white p-4">
-          <div class="flex flex-wrap items-end gap-2">
+          <div id="j-toolbar" class="flex flex-wrap items-end gap-2">
             <div class="mr-auto">
               <h2 class="font-extrabold text-lg">Jurnal Kerja Harian</h2>
               <p id="j-identitas" class="text-xs text-ink/60 mt-0.5"></p>
@@ -441,7 +495,7 @@
                   PNG</button>
               </div>
             </div>
-            <label class="text-xs font-semibold flex items-center gap-1.5 rounded-lg border border-ink/20 px-3 py-2"
+            <label class="j-ttd text-xs font-semibold flex items-center gap-1.5 rounded-lg border border-ink/20 px-3 py-2"
               title="Sembunyikan gambar TTD, sisakan ruang kosong untuk tanda tangan manual"><input id="j-ttd-hide"
                 type="checkbox" class="size-3.5 accent-[#1F6B4F]"> TTD manual</label>
           </div>

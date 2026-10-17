@@ -60,7 +60,7 @@ function terapkanRole() {
   if (navJurnal) navJurnal.classList.toggle('hidden', false);
   if (navPengguna) navPengguna.classList.toggle('hidden', !adalahAdmin());
   if (!terbatas) return;
-  document.querySelectorAll('#sidebar [data-nav]').forEach((x) => {
+  document.querySelectorAll('#sidebar [data-nav], #bottomnav [data-nav]').forEach((x) => {
     if (x.dataset.nav !== 'jurnal') x.classList.add('hidden');
   });
   ['grup-guru', 'grup-mutasi'].forEach((id) => { const g = document.getElementById(id); if (g) g.classList.add('hidden'); });
