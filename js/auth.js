@@ -3,6 +3,9 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // Batas percobaan masuk dari sisi antarmuka (pelengkap, bukan pengganti
 // rate limit server Supabase). Kata sandi sendiri selalu di-hash oleh
 // Supabase Auth di server; aplikasi tidak pernah menyimpannya plain.
+// Catatan: lockout ini hanya pelengkap UI — penyerang bisa menghapusnya
+// lewat console. Proteksi utama tetap Auth Rate Limits di dashboard Supabase
+// (Auth > Settings > Rate Limits, turunkan batas token endpoint) + CAPTCHA.
 const BATAS_PERCOBAAN = 5;
 const KUNCI_LOCK_MENIT = 15;
 

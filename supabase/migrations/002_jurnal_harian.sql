@@ -140,3 +140,6 @@ drop policy if exists "staf tulis bukti" on storage.objects;
 create policy "staf tulis bukti" on storage.objects for all to authenticated
 using (bucket_id = 'bukti-jurnal' and public.am_active())
 with check (bucket_id = 'bukti-jurnal' and public.am_active());
+-- CATATAN: policy di atas adalah versi awal (semua staf bisa baca semua bukti).
+-- Jalankan migrasi 011_bukti_jurnal_per_user.sql untuk membatasi akses
+-- ke folder milik masing-masing pengguna (admin tetap bisa baca semua).

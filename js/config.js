@@ -6,6 +6,9 @@ const SUPABASE_ANON_KEY = 'sb_publishable_moSWqG62EYTLMGdoh3nwmw_DWzLyfI1';
 const AI_ENDPOINT = SUPABASE_URL + '/functions/v1/agent';
 const AI_NAMA = 'GHAA AI';
 
+// Set true saat pengembangan untuk menampilkan pesan error teknis (mis. detail gagal login).
+const DEBUG = false;
+
 
 
 

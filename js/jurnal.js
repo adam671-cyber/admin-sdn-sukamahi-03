@@ -4,7 +4,6 @@ const BUKTI_MAX = 7 * 1048576;
 const BUKTI_IMG = ['image/jpeg', 'image/png'];
 let jurnalDaftar = [], jurnalEditId = null, jurnalUserId = null;
 const jUrlCache = new Map();
-const jGeoCache = new Map();
 let jBuktiViewer = null;
 
 const jIsImg = (j) => {
@@ -678,7 +677,6 @@ async function simpanJurnal() {
         const path = session.user.id + '/' + Date.now() + '-' + file.name.replace(/[^\w.\-]+/g, '_');
         const { error } = await sb.storage.from(BUKTI_BUCKET).upload(path, file, { contentType: file.type });
         if (error) throw error;
-        if (bukti_path) await sb.storage.from(BUKTI_BUCKET).remove([bukti_path]);
         bukti_path = path; bukti_nama = file.name;
       }
       const kegiatan = String(fd.get('kegiatan_0') || '').trim();
@@ -688,13 +686,16 @@ async function simpanJurnal() {
         tanggal: jTglVal(),
         waktu: String(fd.get('waktu_0') || '').trim(),
         kegiatan,
-        bukti_dukung: null,
         bukti_path, bukti_nama,
         keterangan: null,
         diperbarui: new Date().toISOString(),
       };
       const { error } = await sb.from('jurnal_harian').update(row).eq('id', jurnalEditId);
       if (error) throw error;
+      if (file && lama.bukti_path) {
+        await sb.storage.from(BUKTI_BUCKET).remove([lama.bukti_path]);
+        jUrlCache.delete(lama.bukti_path + '|3600');
+      }
     } else {
       const rows = [];
       for (let i = 0; i < 3; i++) {
@@ -714,7 +715,6 @@ async function simpanJurnal() {
           tanggal: jTglVal(),
           waktu: String(fd.get('waktu_' + i) || '').trim(),
           kegiatan,
-          bukti_dukung: null,
           bukti_path, bukti_nama,
           keterangan: null,
         });
@@ -778,7 +778,7 @@ async function cetakJurnal() {
       <td style="border:1px solid #000;padding:6px;vertical-align:top">${esc(j.keterangan || '')}</td>
     </tr>`).join('');
   const kopBaris = (label, nilai) => `<tr><td style="white-space:nowrap;vertical-align:top;width:130px">${label}</td><td style="padding:0 6px;vertical-align:top;width:12px">:</td><td style="vertical-align:top">${nilai}</td></tr>`;
-  const html = `<html><head><title>Jurnal Kerja Harian - ${esc(namaCetak)}</title><style>
+  const html = `<html><head><meta charset="utf-8"><title>Jurnal Kerja Harian - ${esc(namaCetak)}</title><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https://*.supabase.co data:; style-src 'unsafe-inline'"><style>
     body{font-family:'Times New Roman',serif;color:#000;margin:24px}
     table{border-collapse:collapse;width:100%}
     @page{size:215mm 330mm;margin:12mm}</style></head><body>

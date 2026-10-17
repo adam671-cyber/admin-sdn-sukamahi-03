@@ -1,4 +1,4 @@
-/* ==================== mutasi.js ==================== */
+﻿/* ==================== mutasi.js ==================== */
 /* Mutasi Masuk & Keluar: Dashboard Table, Donut Chart, Modal Detail & Form, PDF (F4), Word (F4), Print (F4 - Fit Page) */
 
 /* ========== PILIHAN KELAS (ROMAWI + TEKS) ========== */
@@ -50,8 +50,8 @@ const FIELD_KELUAR = [
 ];
 
 /* ========== STATE ========== */
-let daftarMM = [], aktifMM = null;
-let daftarMK = [], aktifMK = null;
+let daftarMM = [];
+let daftarMK = [];
 let currentModalItem = null, currentModalType = null;
 
 /* ========== HELPER ========== */
@@ -292,7 +292,7 @@ function bukaModalDetail(d, type) {
   const fields = isMasuk ? FIELD_MASUK : FIELD_KELUAR;
 
   $('#md-nama').textContent = d.nama_siswa || 'Detail Siswa';
-  $('#md-sub').textContent = (isMasuk ? 'Mutasi Masuk' : 'Mutasi Keluar') + (d.no_surat ? ' • No. ' + d.no_surat : '');
+  $('#md-sub').textContent = (isMasuk ? 'Mutasi Masuk' : 'Mutasi Keluar') + (d.no_surat ? ' â€¢ No. ' + d.no_surat : '');
 
   let lastGroup = '';
   $('#md-isi').innerHTML = `
@@ -510,7 +510,7 @@ function drawPdfRow(doc, label, val, labelX, colonX, valX, maxValW, currentY, li
 }
 
 /* ==========================================================
-   GENERATE PDF — MUTASI MASUK (F4 FOLIO / 215mm x 330mm)
+   GENERATE PDF â€” MUTASI MASUK (F4 FOLIO / 215mm x 330mm)
    ========================================================== */
 function generatePdfMasuk(d) {
   const doc = new window.jspdf.jsPDF({ unit: 'mm', format: [215, 330] });
@@ -618,7 +618,7 @@ function generatePdfMasuk(d) {
 }
 
 /* ==========================================================
-   GENERATE PDF — MUTASI KELUAR (F4 FOLIO / 215mm x 330mm)
+   GENERATE PDF â€” MUTASI KELUAR (F4 FOLIO / 215mm x 330mm)
    ========================================================== */
 function generatePdfKeluar(d) {
   const doc = new window.jspdf.jsPDF({ unit: 'mm', format: [215, 330] });
@@ -758,7 +758,7 @@ function generatePdfKeluar(d) {
 }
 
 /* ==========================================================
-   GENERATE WORD (.doc) — FORMAT F4 & TANPA PROMPT CONVERT
+   GENERATE WORD (.doc) â€” FORMAT F4 & TANPA PROMPT CONVERT
    ========================================================== */
 function downloadAsWord(html, filename) {
   const fullHtml = `<html xmlns:v="urn:schemas-microsoft-com:vml"
@@ -813,13 +813,13 @@ ${html}
   URL.revokeObjectURL(url);
 }
 
-function generateWordMasuk(d) {
+function htmlSuratMasuk(d) {
   const tanggalStr = d.tanggal_surat ? tglID(new Date(d.tanggal_surat + 'T00:00:00')) : '_______________';
-  const html = `
+  return `
     ${kopSuratHTML()}
     <p class="center bold underline" style="font-size:13pt;margin-top:12px;">SURAT KETERANGAN MENERIMA SISWA PINDAHAN</p>
     <p class="center" style="margin-bottom:14px;">No. : ${esc(d.no_surat || '400.7.22.1/____/SDN.SKM.03/____/____')}</p>
-    
+
     <p>Yang bertanda tangan di bawah ini :</p>
     <table>
       <tr><td style="width:25px;"></td><td style="width:140px;">Nama</td><td style="width:10px;">:</td><td class="bold">${esc(d.nama_kepsek || 'KASWIN KARTAWIJAYA, M.Pd')}</td></tr>
@@ -828,7 +828,7 @@ function generateWordMasuk(d) {
       <tr><td></td><td>Jabatan</td><td>:</td><td>${esc(d.jabatan_kepsek || 'Kepala Sekolah')}</td></tr>
       <tr><td></td><td>Unit Kerja</td><td>:</td><td class="justify">${esc(d.unit_kerja || 'SDN Sukamahi 03, Kec. Cikarang Pusat')}</td></tr>
     </table>
-    
+
     <p style="margin-top:12px;">Menerangkan bahwa siap menerima siswa pindahan :</p>
     <table>
       <tr><td style="width:25px;"></td><td style="width:140px;">Nama</td><td style="width:10px;">:</td><td class="bold">${esc(d.nama_siswa || '')}</td></tr>
@@ -838,7 +838,7 @@ function generateWordMasuk(d) {
       <tr><td></td><td>Asal Sekolah</td><td>:</td><td class="justify">${esc(d.asal_sekolah || '')}</td></tr>
       <tr><td></td><td>Kelas</td><td>:</td><td>${esc(d.kelas || '')}</td></tr>
     </table>
-    
+
     <p class="bold" style="margin-top:12px;">Dengan Persyaratan :</p>
     <table style="margin-left:15px;">
       <tr><td style="width:25px;">1.</td><td>Membawa Surat Pindah/mutasi dari Sekolah asal.</td></tr>
@@ -848,9 +848,9 @@ function generateWordMasuk(d) {
       <tr><td>5.</td><td>Menyerahkan Fotocopy Akta Kelahiran.</td></tr>
       <tr><td>6.</td><td>Menyerahkan Fotocopy KTP kedua orang tua.</td></tr>
     </table>
-    
+
     <p class="justify" style="margin-top:14px;">Demikian surat keterangan ini dibuat untuk dipergunakan dan dipatuhi sebagaimana mestinya.</p>
-    
+
     <br/><br/>
     <table style="width:100%;">
       <tr><td style="width:55%;"></td><td>Cikarang Pusat, ${esc(tanggalStr)}</td></tr>
@@ -859,13 +859,15 @@ function generateWordMasuk(d) {
       <tr><td></td><td class="bold underline">${esc(d.nama_kepsek || 'KASWIN KARTAWIJAYA, M.Pd')}</td></tr>
       <tr><td></td><td>NIP. ${esc(d.nip_kepsek || '19720506 199903 1 007')}</td></tr>
     </table>`;
-
-  downloadAsWord(html, 'Surat-Mutasi-Masuk-' + (d.nama_siswa || 'siswa').replace(/[^\w]+/g, '-') + '.doc');
 }
 
-function generateWordKeluar(d) {
+function generateWordMasuk(d) {
+  downloadAsWord(htmlSuratMasuk(d), 'Surat-Mutasi-Masuk-' + (d.nama_siswa || 'siswa').replace(/[^\w]+/g, '-') + '.doc');
+}
+
+function htmlSuratKeluar(d) {
   const tanggalSurat = d.tanggal_surat ? tglID(new Date(d.tanggal_surat + 'T00:00:00')) : '_______________';
-  const html = `
+  return `
     ${kopSuratHTML()}
     <table style="width:100%;">
       <tr>
@@ -884,9 +886,9 @@ function generateWordKeluar(d) {
         </td>
       </tr>
     </table>
-    
+
     <p class="justify" style="margin-top:8px;">Kepala Sekolah Dasar Negeri Sukamahi 03 Kecamatan Cikarang Pusat Kabupaten Bekasi, dengan ini memberikan izin pindah sekolah/rayon kepada:</p>
-    
+
     <table>
       <tr><td style="width:140px;">Nama</td><td style="width:10px;">:</td><td class="bold">${esc(d.nama_siswa || '')}</td></tr>
       <tr><td>Tempat, Tgl. Lahir</td><td>:</td><td>${esc(d.tempat_tgl_lahir || '')}</td></tr>
@@ -896,12 +898,12 @@ function generateWordKeluar(d) {
       <tr><td>Asal Sekolah</td><td>:</td><td>${esc(d.asal_sekolah || 'SDN SUKAMAHI 03')}</td></tr>
       <tr><td>Alamat Sekolah</td><td>:</td><td class="justify">${esc(d.alamat_sekolah || 'Jl. Raya Sukamahi Kp. Cimahi Rt. 007/004 Ds. Sukamahi Kec. Cikarang Pusat Kab. Bekasi')}</td></tr>
     </table>
-    
+
     <table style="margin-top:4px;">
       <tr><td style="width:140px;">Nama Orang Tua</td><td style="width:10px;">:</td><td>Ayah : ${esc(d.nama_ayah || '_______________')}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Ibu : ${esc(d.nama_ibu || '_______________')}</td></tr>
       <tr><td>Alamat Orang Tua</td><td>:</td><td class="justify">${esc(d.alamat_ortu || '_______________')}</td></tr>
     </table>
-    
+
     <p class="bold" style="margin-top:8px;">Melanjutkan / Pindah ke :</p>
     <table>
       <tr><td style="width:140px;">Nama Sekolah</td><td style="width:10px;">:</td><td class="bold">${esc(d.sekolah_tujuan || '')}</td></tr>
@@ -910,18 +912,18 @@ function generateWordKeluar(d) {
       <tr><td>Provinsi</td><td>:</td><td>${esc(d.provinsi_tujuan || '')}</td></tr>
       <tr><td>Alasan</td><td>:</td><td class="justify">${esc(d.alasan_pindah || '')}</td></tr>
     </table>
-    
+
     <p class="justify" style="margin-top:8px;">Demikian surat ini kami buat untuk dipergunakan sebagaimana mestinya dan agar menjadi maklum adanya.</p>
-    
+
     <table style="width:100%;margin-top:6px;">
       <tr><td style="width:55%;"></td><td>Kepala SDN Sukamahi 03,</td></tr>
       <tr><td></td><td><br/><br/><br/></td></tr>
       <tr><td></td><td class="bold underline">${esc(d.nama_kepsek || 'KASWIN KARTAWIJAYA, M.Pd')}</td></tr>
       <tr><td></td><td>NIP. ${esc(d.nip_kepsek || '19720506 199903 1 007')}</td></tr>
     </table>
-    
+
     <hr style="border:0;border-top:1px solid #000;margin:10px 0 8px 0;"/>
-    
+
     <p>NSS : __________________________________________________</p>
     <table>
       <tr><td style="width:140px;">Nama Sekolah</td><td style="width:10px;">:</td><td>________________________________________________</td></tr>
@@ -932,7 +934,7 @@ function generateWordKeluar(d) {
       <tr><td>Nama Siswa</td><td>:</td><td>________________________________________________</td></tr>
       <tr><td>Diterima di Kelas</td><td>:</td><td>________________________________________________</td></tr>
     </table>
-    
+
     <table style="width:100%;margin-top:6px;">
       <tr><td style="width:55%;"></td><td>____________________, __________________</td></tr>
       <tr><td></td><td>Kepala Sekolah,</td></tr>
@@ -940,16 +942,20 @@ function generateWordKeluar(d) {
       <tr><td></td><td>________________________________________</td></tr>
       <tr><td></td><td>NIP.</td></tr>
     </table>`;
+}
 
-  downloadAsWord(html, 'Surat-Mutasi-Keluar-' + (d.nama_siswa || 'siswa').replace(/[^\w]+/g, '-') + '.doc');
+function generateWordKeluar(d) {
+  downloadAsWord(htmlSuratKeluar(d), 'Surat-Mutasi-Keluar-' + (d.nama_siswa || 'siswa').replace(/[^\w]+/g, '-') + '.doc');
 }
 
 /* ==========================================================
-   PRINT — FORMAT F4 FOLIO (FIT PROPOSIONAL 1 LEMBAR)
+   PRINT â€” FORMAT F4 FOLIO (FIT PROPOSIONAL 1 LEMBAR)
    ========================================================== */
 function openPrintWindow(html, title) {
   const win = window.open('', '_blank');
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
+  if (!win) return alert('Pop-up diblokir browser. Izinkan pop-up untuk halaman ini, lalu coba lagi.');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(title)}</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">
     <style>
       @page {
         size: 215mm 330mm; /* Standar F4 / Folio */
@@ -987,136 +993,15 @@ function openPrintWindow(html, title) {
 }
 
 function printMasuk(d) {
-  const tanggalStr = d.tanggal_surat ? tglID(new Date(d.tanggal_surat + 'T00:00:00')) : '_______________';
-  const html = `
-    ${kopSuratHTML()}
-    <p class="center bold underline" style="font-size:13pt;margin-top:14px;">SURAT KETERANGAN MENERIMA SISWA PINDAHAN</p>
-    <p class="center" style="margin-bottom:16px;">No. : ${esc(d.no_surat || '400.7.22.1/____/SDN.SKM.03/____/____')}</p>
-    
-    <p>Yang bertanda tangan di bawah ini :</p>
-    <table>
-      <tr><td style="width:25px;"></td><td style="width:140px;">Nama</td><td style="width:10px;">:</td><td class="bold">${esc(d.nama_kepsek || 'KASWIN KARTAWIJAYA, M.Pd')}</td></tr>
-      <tr><td></td><td>NIP</td><td>:</td><td>${esc(d.nip_kepsek || '19720506 199903 1 007')}</td></tr>
-      <tr><td></td><td>Pangkat/Gol</td><td>:</td><td>${esc(d.pangkat_gol || 'Pembina Utama Muda / IVc')}</td></tr>
-      <tr><td></td><td>Jabatan</td><td>:</td><td>${esc(d.jabatan_kepsek || 'Kepala Sekolah')}</td></tr>
-      <tr><td></td><td>Unit Kerja</td><td>:</td><td class="justify">${esc(d.unit_kerja || 'SDN Sukamahi 03, Kec. Cikarang Pusat')}</td></tr>
-    </table>
-    
-    <p style="margin-top:14px;">Menerangkan bahwa siap menerima siswa pindahan :</p>
-    <table>
-      <tr><td style="width:25px;"></td><td style="width:140px;">Nama</td><td style="width:10px;">:</td><td class="bold">${esc(d.nama_siswa || '')}</td></tr>
-      <tr><td></td><td>TTL</td><td>:</td><td>${esc(d.ttl || '')}</td></tr>
-      <tr><td></td><td>Jenis Kelamin</td><td>:</td><td>${esc(d.jenis_kelamin || '')}</td></tr>
-      ${d.nisn ? `<tr><td></td><td>NISN</td><td>:</td><td>${esc(d.nisn)}</td></tr>` : ''}
-      <tr><td></td><td>Asal Sekolah</td><td>:</td><td class="justify">${esc(d.asal_sekolah || '')}</td></tr>
-      <tr><td></td><td>Kelas</td><td>:</td><td>${esc(d.kelas || '')}</td></tr>
-    </table>
-    
-    <p class="bold" style="margin-top:14px;">Dengan Persyaratan :</p>
-    <table style="margin-left:15px;">
-      <tr><td style="width:25px;">1.</td><td>Membawa Surat Pindah/mutasi dari Sekolah asal.</td></tr>
-      <tr><td>2.</td><td>Membawa Surat Mutasi Dapodik dari Sekolah asal.</td></tr>
-      <tr><td>3.</td><td>Membawa Fotocopy Raport (dari sekolah asal).</td></tr>
-      <tr><td>4.</td><td>Menyerahkan fotocopy KK (Kartu Keluarga).</td></tr>
-      <tr><td>5.</td><td>Menyerahkan Fotocopy Akta Kelahiran.</td></tr>
-      <tr><td>6.</td><td>Menyerahkan Fotocopy KTP kedua orang tua.</td></tr>
-    </table>
-    
-    <p class="justify" style="margin-top:16px;">Demikian surat keterangan ini dibuat untuk dipergunakan dan dipatuhi sebagaimana mestinya.</p>
-    
-    <br/><br/>
-    <table style="width:100%;">
-      <tr><td style="width:55%;"></td><td>Cikarang Pusat, ${esc(tanggalStr)}</td></tr>
-      <tr><td></td><td>Kepala SDN Sukamahi 03,</td></tr>
-      <tr><td></td><td><br/><br/><br/><br/></td></tr>
-      <tr><td></td><td class="bold underline">${esc(d.nama_kepsek || 'KASWIN KARTAWIJAYA, M.Pd')}</td></tr>
-      <tr><td></td><td>NIP. ${esc(d.nip_kepsek || '19720506 199903 1 007')}</td></tr>
-    </table>`;
-  openPrintWindow(html, 'Surat Mutasi Masuk - ' + (d.nama_siswa || ''));
+  openPrintWindow(htmlSuratMasuk(d), 'Surat Mutasi Masuk - ' + (d.nama_siswa || ''));
 }
 
 function printKeluar(d) {
-  const tanggalSurat = d.tanggal_surat ? tglID(new Date(d.tanggal_surat + 'T00:00:00')) : '_______________';
-  const html = `
-    ${kopSuratHTML()}
-    <table style="width:100%;">
-      <tr>
-        <td style="width:52%;vertical-align:top;">
-          <p>Nomor&nbsp;&nbsp;&nbsp;&nbsp;: ${esc(d.no_surat || '400.3.12.1/____/SDN.SKM.03/____/____')}</p>
-          <p>Lampiran : ${esc(d.lampiran || '-')}</p>
-          <p>Perihal&nbsp;&nbsp;&nbsp;: Surat Mutasi/Pindah Sekolah</p>
-        </td>
-        <td style="width:48%;vertical-align:top;">
-          <p>Cikarang Pusat, ${esc(tanggalSurat)}</p>
-          <p>Kepada Yth.</p>
-          <p>Kepala</p>
-          <p class="bold">${esc(d.sekolah_tujuan || '_______________')}</p>
-          <p>di</p>
-          <p>Tempat</p>
-        </td>
-      </tr>
-    </table>
-    
-    <p class="justify" style="margin-top:8px;">Kepala Sekolah Dasar Negeri Sukamahi 03 Kecamatan Cikarang Pusat Kabupaten Bekasi, dengan ini memberikan izin pindah sekolah/rayon kepada:</p>
-    
-    <table>
-      <tr><td style="width:140px;">Nama</td><td style="width:10px;">:</td><td class="bold">${esc(d.nama_siswa || '')}</td></tr>
-      <tr><td>Tempat, Tgl. Lahir</td><td>:</td><td>${esc(d.tempat_tgl_lahir || '')}</td></tr>
-      <tr><td>Jenis Kelamin</td><td>:</td><td>${esc(d.jenis_kelamin || '')}</td></tr>
-      <tr><td>NISN</td><td>:</td><td>${esc(d.nisn || '')}</td></tr>
-      <tr><td>Kelas</td><td>:</td><td>${esc(d.kelas || '')}</td></tr>
-      <tr><td>Asal Sekolah</td><td>:</td><td>${esc(d.asal_sekolah || 'SDN SUKAMAHI 03')}</td></tr>
-      <tr><td>Alamat Sekolah</td><td>:</td><td class="justify">${esc(d.alamat_sekolah || 'Jl. Raya Sukamahi Kp. Cimahi Rt. 007/004 Ds. Sukamahi Kec. Cikarang Pusat Kab. Bekasi')}</td></tr>
-    </table>
-    
-    <table style="margin-top:3px;">
-      <tr><td style="width:140px;">Nama Orang Tua</td><td style="width:10px;">:</td><td>Ayah : ${esc(d.nama_ayah || '_______________')}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Ibu : ${esc(d.nama_ibu || '_______________')}</td></tr>
-      <tr><td>Alamat Orang Tua</td><td>:</td><td class="justify">${esc(d.alamat_ortu || '_______________')}</td></tr>
-    </table>
-    
-    <p class="bold" style="margin-top:6px;">Melanjutkan / Pindah ke :</p>
-    <table>
-      <tr><td style="width:140px;">Nama Sekolah</td><td style="width:10px;">:</td><td class="bold">${esc(d.sekolah_tujuan || '')}</td></tr>
-      <tr><td>Kecamatan</td><td>:</td><td>${esc(d.kecamatan_tujuan || '')}</td></tr>
-      <tr><td>Kabupaten / Kota</td><td>:</td><td>${esc(d.kabupaten_tujuan || '')}</td></tr>
-      <tr><td>Provinsi</td><td>:</td><td>${esc(d.provinsi_tujuan || '')}</td></tr>
-      <tr><td>Alasan</td><td>:</td><td class="justify">${esc(d.alasan_pindah || '')}</td></tr>
-    </table>
-    
-    <p class="justify" style="margin-top:6px;">Demikian surat ini kami buat untuk dipergunakan sebagaimana mestinya dan agar menjadi maklum adanya.</p>
-    
-    <table style="width:100%;margin-top:4px;">
-      <tr><td style="width:55%;"></td><td>Kepala SDN Sukamahi 03,</td></tr>
-      <tr><td></td><td><br/><br/><br/></td></tr>
-      <tr><td></td><td class="bold underline">${esc(d.nama_kepsek || 'KASWIN KARTAWIJAYA, M.Pd')}</td></tr>
-      <tr><td></td><td>NIP. ${esc(d.nip_kepsek || '19720506 199903 1 007')}</td></tr>
-    </table>
-    
-    <hr style="border:0;border-top:1px solid #000;margin:8px 0 6px 0;"/>
-    
-    <p>NSS : __________________________________________________</p>
-    <table>
-      <tr><td style="width:140px;">Nama Sekolah</td><td style="width:10px;">:</td><td>________________________________________________</td></tr>
-      <tr><td>Status Sekolah</td><td>:</td><td>________________________________________________</td></tr>
-      <tr><td>Alamat</td><td>:</td><td>________________________________________________</td></tr>
-      <tr><td>Kecamatan</td><td>:</td><td>________________________________________________</td></tr>
-      <tr><td>Kabupaten</td><td>:</td><td>________________________________________________</td></tr>
-      <tr><td>Nama Siswa</td><td>:</td><td>________________________________________________</td></tr>
-      <tr><td>Diterima di Kelas</td><td>:</td><td>________________________________________________</td></tr>
-    </table>
-    
-    <table style="width:100%;margin-top:4px;">
-      <tr><td style="width:55%;"></td><td>____________________, __________________</td></tr>
-      <tr><td></td><td>Kepala Sekolah,</td></tr>
-      <tr><td></td><td><br/><br/></td></tr>
-      <tr><td></td><td>________________________________________</td></tr>
-      <tr><td></td><td>NIP.</td></tr>
-    </table>`;
-  openPrintWindow(html, 'Surat Mutasi Keluar - ' + (d.nama_siswa || ''));
+  openPrintWindow(htmlSuratKeluar(d), 'Surat Mutasi Keluar - ' + (d.nama_siswa || ''));
 }
 
 /* ==========================================================
-   UPLOAD BATCH (Excel) — header kolom = key FIELD_*
+   UPLOAD BATCH (Excel) â€” header kolom = key FIELD_*
    ========================================================== */
 let batchType = 'masuk', batchRows = [];
 const batchFields = () => batchType === 'masuk' ? FIELD_MASUK : FIELD_KELUAR;
@@ -1186,7 +1071,7 @@ $('#mb-simpan').onclick = async () => {
 };
 
 /* ==========================================================
-   RAG CHAT — Tanya Jawab Data Mutasi (via Gemini + pgvector)
+   RAG CHAT â€” Tanya Jawab Data Mutasi (via Gemini + pgvector)
    ========================================================== */
 let ragChatHistory = [];
 
@@ -1238,7 +1123,7 @@ async function kirimPesanRAG() {
         'Authorization': 'Bearer ' + session.access_token,
         'apikey': SUPABASE_ANON_KEY,
       },
-      body: JSON.stringify({ action: 'ask', query }),
+      body: JSON.stringify({ action: 'ask', query, history: ragChatHistory.slice(-10) }),
     });
     const data = await res.json();
     loadingEl.remove();
@@ -1253,7 +1138,7 @@ async function kirimPesanRAG() {
       const srcEl = document.createElement('div');
       srcEl.className = 'mb-3 p-2 rounded bg-ink/5 text-[11px] text-ink/70 border border-ink/10';
       srcEl.innerHTML = '<strong>Sumber:</strong><br>' + data.sources.map((s, i) =>
-        `${i + 1}. ${esc(s.nama_siswa)} (${s._table === 'mutasi_masuk' ? 'Masuk' : 'Keluar'}) — ${Math.round(s.similarity * 100)}%`
+        `${i + 1}. ${esc(s.nama_siswa)} (${s._table === 'mutasi_masuk' ? 'Masuk' : 'Keluar'}) â€” ${Math.round(s.similarity * 100)}%`
       ).join('<br>');
       $('#rag-chat-messages').appendChild(srcEl);
     }

@@ -19,18 +19,33 @@ Aturan:
 - Jangan membuat keputusan administrasi atas nama sekolah, hanya memberi saran.
 - Jangan gunakan format markdown seperti tanda bintang atau pagar; tulis teks biasa.`;
 
-const cors = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-};
+// Domain yang boleh memanggil function ini. Tambahkan domain produksi
+// (mis. https://admin-sdn-sukamahi-03.vercel.app) ke daftar di bawah.
+const ORIGIN_DIIZINKAN = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:3000',
+];
+
+function cors(req: Request): Record<string, string> {
+  const origin = req.headers.get('Origin') ?? '';
+  const izinkan = ORIGIN_DIIZINKAN.includes(origin) ? origin : ORIGIN_DIIZINKAN[0];
+  return {
+    'Access-Control-Allow-Origin': izinkan,
+    'Access-Control-Allow-Headers': 'authorization, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+    'Vary': 'Origin',
+  };
+}
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
+  const headers = cors(req);
+  if (req.method === 'OPTIONS') return new Response('ok', { headers });
   const sbAuth = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!,
     { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } });
   const { data: { user } } = await sbAuth.auth.getUser();
-  if (!user) return Response.json({ error: 'Belum login' }, { status: 401, headers: cors });
+  if (!user) return Response.json({ error: 'Belum login' }, { status: 401, headers });
   // Ambil konteks pakai service_role agar tidak terblokir RLS (guru biasa hanya bisa baca jurnal sendiri).
   // Secret tambahan: supabase secrets set SUPABASE_SERVICE_ROLE_KEY=...
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -92,6 +107,6 @@ Deno.serve(async (req) => {
     })
   });
   const j = await r.json();
-  if (!r.ok) return Response.json({ reply: 'Agen error: ' + (j.error?.message ?? r.status) }, { headers: cors });
-  return Response.json({ reply: j.candidates?.[0]?.content?.parts?.[0]?.text ?? 'Maaf, agen tidak merespons.' }, { headers: cors });
+  if (!r.ok) return Response.json({ reply: 'Agen error: ' + (j.error?.message ?? r.status) }, { headers });
+  return Response.json({ reply: j.candidates?.[0]?.content?.parts?.[0]?.text ?? 'Maaf, agen tidak merespons.' }, { headers });
 });

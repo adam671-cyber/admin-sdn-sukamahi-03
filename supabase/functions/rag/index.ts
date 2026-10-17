@@ -1,4 +1,4 @@
-// Deploy: supabase functions deploy rag
+﻿// Deploy: supabase functions deploy rag
 // Secrets: supabase secrets set GEMINI_API_KEY=... AI_MODEL=gemini-3.6-flash
 // Setelah mengganti penyedia embedding, kosongkan embedding lama:
 //     UPDATE mutasi_masuk SET embedding = NULL; UPDATE mutasi_keluar SET embedding = NULL;
@@ -9,11 +9,25 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const cors = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-};
+// Domain yang boleh memanggil function ini. Tambahkan domain produksi
+// (mis. https://admin-sdn-sukamahi-03.vercel.app) ke daftar di bawah.
+const ORIGIN_DIIZINKAN = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:3000',
+];
+
+function cors(req: Request): Record<string, string> {
+  const origin = req.headers.get('Origin') ?? '';
+  const izinkan = ORIGIN_DIIZINKAN.includes(origin) ? origin : ORIGIN_DIIZINKAN[0];
+  return {
+    'Access-Control-Allow-Origin': izinkan,
+    'Access-Control-Allow-Headers': 'authorization, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+    'Vary': 'Origin',
+  };
+}
 
 const GEMINI_KEY = Deno.env.get('GEMINI_API_KEY')!;
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
@@ -44,7 +58,8 @@ function buildContext(record: any, type: 'masuk' | 'keluar'): string {
 }
 
 async function handle(req: Request): Promise<Response> {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
+  const headers = cors(req);
+  if (req.method === 'OPTIONS') return new Response('ok', { headers });
 
   const sb = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -53,11 +68,24 @@ async function handle(req: Request): Promise<Response> {
   );
 
   const { data: { user } } = await sb.auth.getUser();
-  if (!user) return Response.json({ error: 'Belum login' }, { status: 401, headers: cors });
+  if (!user) return Response.json({ error: 'Belum login' }, { status: 401, headers });
+
+  // Data mutasi seluruh siswa hanya untuk admin aktif (RLS profiles membatasi
+  // baca profiles, jadi cek role lewat fungsi security definer is_admin()).
+  const { data: isAdmin, error: roleErr } = await sb.rpc('is_admin');
+  if (roleErr || !isAdmin) {
+    return Response.json({ error: 'Hanya admin yang boleh memakai fitur ini.' }, { status: 403, headers });
+  }
 
   const body = await req.json();
   const { action } = body;
   const query = typeof body.query === 'string' ? body.query.slice(0, 1000) : body.query;
+  const history = Array.isArray(body.history)
+    ? body.history
+      .filter((m: any) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+      .slice(-10)
+      .map((m: any) => ({ role: m.role, content: m.content.slice(0, 2000) }))
+    : [];
   const type = body.type === 'masuk' ? 'masuk' : 'keluar';
   const limit = Math.min(Math.max(Number(body.limit) || 5, 1), 20);
 
@@ -70,7 +98,7 @@ async function handle(req: Request): Promise<Response> {
       .is('embedding', null)
       .limit(100);
 
-    if (error) return Response.json({ error: error.message }, { status: 500, headers: cors });
+    if (error) return Response.json({ error: error.message }, { status: 500, headers });
 
     let count = 0;
     for (const record of records ?? []) {
@@ -83,11 +111,11 @@ async function handle(req: Request): Promise<Response> {
       if (updErr) console.error('Update error:', updErr);
       else count++;
     }
-    return Response.json({ embedded: count }, { headers: cors });
+    return Response.json({ embedded: count }, { headers });
   }
 
   if (action === 'search') {
-    if (!query) return Response.json({ error: 'Query required' }, { status: 400, headers: cors });
+    if (!query) return Response.json({ error: 'Query required' }, { status: 400, headers });
 
     const qEmbedding = await getEmbedding(query, 'RETRIEVAL_QUERY');
     const table = type === 'masuk' ? 'mutasi_masuk' : 'mutasi_keluar';
@@ -108,7 +136,7 @@ async function handle(req: Request): Promise<Response> {
         .not('embedding', 'is', null)
         .limit(500);
 
-      if (selErr) return Response.json({ error: selErr.message }, { status: 500, headers: cors });
+      if (selErr) return Response.json({ error: selErr.message }, { status: 500, headers });
 
       const scored = (allRecords ?? [])
         .map(r => ({
@@ -119,14 +147,14 @@ async function handle(req: Request): Promise<Response> {
         .sort((a, b) => b.similarity - a.similarity)
         .slice(0, limit);
 
-      return Response.json({ results: scored }, { headers: cors });
+      return Response.json({ results: scored }, { headers });
     }
 
-    return Response.json({ results: data }, { headers: cors });
+    return Response.json({ results: data }, { headers });
   }
 
   if (action === 'ask') {
-    if (!query) return Response.json({ error: 'Query required' }, { status: 400, headers: cors });
+    if (!query) return Response.json({ error: 'Query required' }, { status: 400, headers });
 
     // Search relevant records
     const qEmbedding = await getEmbedding(query, 'RETRIEVAL_QUERY');
@@ -189,7 +217,10 @@ async function handle(req: Request): Promise<Response> {
         system_instruction: {
           parts: [{ text: 'Kamu asisten data mutasi SDN Sukamahi 03. Jawab berdasarkan konteks data siswa mutasi masuk/keluar. Jika data tidak cukup, katakan tidak tahu. Jawab singkat, bahasa Indonesia, tanpa format markdown.' }],
         },
-        contents: [{ role: 'user', parts: [{ text: `Konteks data:\n${context || '(tidak ada data relevan)'}\n\nPertanyaan: ${query}` }] }],
+        contents: [
+          ...history.map((m: any) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
+          { role: 'user', parts: [{ text: `Konteks data:\n${context || '(tidak ada data relevan)'}\n\nPertanyaan: ${query}` }] },
+        ],
         generationConfig: { temperature: 0.2, maxOutputTokens: 500 },
       }),
     });
@@ -198,10 +229,10 @@ async function handle(req: Request): Promise<Response> {
     const answer = llmData.candidates?.[0]?.content?.parts?.[0]?.text ?? 'Maaf, gagal menghasilkan jawaban.';
 
     const sources = results.slice(0, 3).map(({ embedding: _e, ...rest }) => rest);
-    return Response.json({ answer, sources }, { headers: cors });
+    return Response.json({ answer, sources }, { headers });
   }
 
-  return Response.json({ error: 'Invalid action' }, { status: 400, headers: cors });
+  return Response.json({ error: 'Invalid action' }, { status: 400, headers });
 }
 
 Deno.serve(async (req) => {
@@ -209,7 +240,7 @@ Deno.serve(async (req) => {
     return await handle(req);
   } catch (e) {
     console.error(e);
-    return Response.json({ error: e instanceof Error ? e.message : 'Kesalahan server' }, { status: 500, headers: cors });
+    return Response.json({ error: e instanceof Error ? e.message : 'Kesalahan server' }, { status: 500, headers });
   }
 });
 

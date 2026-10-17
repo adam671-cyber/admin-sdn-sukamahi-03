@@ -1,5 +1,6 @@
 /* Absensi pegawai: rekap bulanan + tanggal merah (otomatis + manual) */
-/* ponytail: manual di localStorage, naik ke tabel Supabase saat perlu multi-device */
+/* Tanggal merah manual disimpan di tabel absensi_libur Supabase agar
+   konsisten antar perangkat; localStorage hanya cadangan bila tabel belum ada. */
 const BULAN_ID = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 const liburCache = new Map();
 let absensiGuru = [], absensiMap = new Map(), absensiLibur = new Map();
@@ -18,6 +19,16 @@ async function liburBulan(bln) {
     const r = await fetch(`https://date.nager.at/api/v3/publicholidays/${bln.slice(0, 4)}/ID`);
     if (r.ok) (await r.json()).forEach((h) => { if (String(h.date).startsWith(bln) && !m.has(h.date)) m.set(h.date, h.localName || h.name); });
   } catch { /* offline: tetap jalan, hanya Sabtu-Minggu + manual */ }
+  // Tanggal merah manual dari database (admin). Bila tabel belum ada, pakai localStorage.
+  try {
+    const { data, error } = await sb.from('absensi_libur').select('tanggal,keterangan')
+      .gte('tanggal', bln + '-01').lte('tanggal', tglKey(bln, hariDiBulan(bln)));
+    if (!error) {
+      (data || []).forEach((h) => m.set(h.tanggal, h.keterangan));
+      liburCache.set(bln, m);
+      return m;
+    }
+  } catch { /* tabel belum ada: lanjut dengan localStorage */ }
   liburCache.set(bln, m);
   return m;
 }
@@ -114,32 +125,43 @@ function renderRekap(bln) {
 
 function renderDaftarMerah(bln) {
   const ul = $('#m-daftar'); if (!ul) return;
-  const semua = merahManual();
-  const rows = Object.entries(semua).filter(([k]) => String(k).startsWith(bln)).sort(([a], [b]) => a < b ? -1 : 1);
+  const semua = {};
+  absensiLibur.forEach((ket, k) => {
+    if (String(k).startsWith(bln) && !/^(Hari Minggu|Hari Sabtu)$/.test(ket)) semua[k] = ket;
+  });
+  const rows = Object.entries(semua).sort(([a], [b]) => a < b ? -1 : 1);
   ul.innerHTML = rows.map(([k, ket]) => `<li class="flex items-center gap-2 rounded-lg border border-ink/10 px-2 py-1.5 text-xs"><span class="font-semibold whitespace-nowrap">${esc(k.split('-').reverse().join('/'))}</span><span class="flex-1 truncate">${esc(ket)}</span><button data-hapus-merah="${esc(k)}" class="text-red-700 hover:underline">Hapus</button></li>`).join('')
     || '<li class="text-xs text-ink/50 sm:col-span-2">Belum ada tanggal merah manual bulan ini.</li>';
 }
 
 $('#a-bulan').onchange = muatAbsensi;
-$('#m-simpan').onclick = () => {
+
+$('#m-simpan').onclick = async () => {
   const tanggal = $('#m-tanggal').value, ket = $('#m-ket').value.trim();
   if (!tanggal) return alert('Pilih tanggal dulu.');
   if (!ket) return alert('Isi keterangan tanggal merah.');
   const d = new Date(tanggal + 'T00:00:00');
   if (d.getDay() === 0 || d.getDay() === 6) return alert('Sabtu-Minggu sudah otomatis merah, tidak perlu ditambah.');
-  const semua = merahManual();
-  semua[tanggal] = ket;
-  simpanManual(semua);
+  // Simpan ke database (admin). Bila tabel belum ada, jatuh ke localStorage.
+  const { error } = await sb.from('absensi_libur').upsert({ tanggal, keterangan: ket }, { onConflict: 'tanggal' });
+  if (error) {
+    const semua = merahManual();
+    semua[tanggal] = ket;
+    simpanManual(semua);
+  }
   liburCache.delete(tanggal.slice(0, 7));
   $('#m-tanggal').value = ''; $('#m-ket').value = '';
   muatAbsensi();
 };
-$('#m-daftar').onclick = (e) => {
+$('#m-daftar').onclick = async (e) => {
   const k = e.target.dataset.hapusMerah; if (!k) return;
   if (!confirm('Hapus tanggal merah ' + k + '?')) return;
-  const semua = merahManual();
-  delete semua[k];
-  simpanManual(semua);
+  const { error } = await sb.from('absensi_libur').delete().eq('tanggal', k);
+  if (error) {
+    const semua = merahManual();
+    delete semua[k];
+    simpanManual(semua);
+  }
   liburCache.delete(k.slice(0, 7));
   muatAbsensi();
 };

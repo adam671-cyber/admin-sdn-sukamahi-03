@@ -71,12 +71,6 @@
           </div>
         </div>
       </div>
-      <a href="#whatsapp" data-nav="whatsapp" class="side-item" title="WhatsApp">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
-          <path d="M21 12a8.5 8.5 0 0 1-12.5 7.5L3 21l1.6-5.3A8.5 8.5 0 1 1 21 12Z" />
-        </svg>
-        <span class="side-label">WhatsApp</span>
-      </a>
       <div class="navgroup" id="grup-mutasi" data-open="false">
         <button type="button" id="btn-grup-mutasi" class="side-item" title="Mutasi" aria-expanded="false"
           aria-controls="sub-mutasi">
@@ -277,28 +271,6 @@
           </div>
           <p id="a-jumlah" class="mt-1 text-xs text-ink/60"></p>
           <ul id="a-list" class="mt-2 divide-y divide-ink/10 text-sm"></ul>
-        </article>
-      </section>
-
-      <!-- WHATSAPP -->
-      <section id="view-whatsapp" class="hidden max-w-xl">
-        <article class="rounded-xl bg-white p-4">
-          <h2 class="font-extrabold text-lg">WhatsApp</h2>
-          <p class="text-sm text-ink/60 mt-1">WhatsApp tidak bisa ditampilkan di dalam halaman lain, jadi pesan dibuka
-            di jendela WhatsApp milikmu.</p>
-          <form id="form-wa" class="mt-4 space-y-3">
-            <input id="wa-nomor" required inputmode="tel" placeholder="Nomor tujuan, mis. 0812xxxxxxx"
-              class="w-full rounded-lg border border-ink/20 px-3 py-2 text-sm">
-            <textarea id="wa-pesan" rows="4" placeholder="Isi pesan"
-              class="w-full rounded-lg border border-ink/20 px-3 py-2 text-sm"></textarea>
-            <div class="flex gap-2">
-              <button class="rounded-lg bg-hijau text-white text-sm font-semibold px-4 py-2 hover:bg-ink">Kirim lewat
-                WhatsApp</button>
-              <a href="https://web.whatsapp.com" target="_blank" rel="noopener"
-                class="rounded-lg border border-ink/20 text-sm font-semibold px-4 py-2 hover:bg-kertas">Buka WhatsApp
-                Web</a>
-            </div>
-          </form>
         </article>
       </section>
 
@@ -608,9 +580,6 @@
   </div>
 
   <!-- Modal Upload Batch Mutasi -->
-
-
-  <!-- Modal Upload Batch Mutasi (unchanged) -->
   <div id="modal-mutasi-batch"
     class="hidden fixed inset-0 z-[60] bg-black/60 p-3 sm:p-4 flex items-center justify-center overflow-y-auto"
     role="dialog" aria-modal="true">

@@ -4,7 +4,6 @@ const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 }[c]));
-const FIXED = [['nama', 'Nama'], ['nip', 'NIP'], ['jabatan', 'Jabatan']];
 // Dipakai bersama oleh guru.js dan berkas.js
 const BUCKET = 'dokumen-guru';
 const tglID = (d) => d.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'long', year: 'numeric' });
@@ -136,7 +135,7 @@ $('#btn-grup-mutasi').onclick = () => {
 };
 
 function route() {
-  const semua = ['dashboard', 'guru', 'berkas', 'whatsapp', 'mutasi-masuk', 'mutasi-keluar', 'absensi', 'arsip', 'jurnal', 'pengguna'];
+  const semua = ['dashboard', 'guru', 'berkas', 'mutasi-masuk', 'mutasi-keluar', 'absensi', 'arsip', 'jurnal', 'pengguna'];
   let h = location.hash.slice(1);
   if (hanyaJurnal()) {
     if (h !== 'jurnal') { location.hash = '#jurnal'; h = 'jurnal'; }
@@ -514,12 +513,4 @@ $('#form-chat').onsubmit = async (e) => {
     chat.pop(); wait.textContent = 'Agen belum bisa menjawab: ' + err.message;
   }
   setAI('idle', 'Siap membantu');
-};
-
-/* ---------- WhatsApp ---------- */
-$('#form-wa').onsubmit = (e) => {
-  e.preventDefault();
-  let n = $('#wa-nomor').value.replace(/\D/g, '');
-  if (n.startsWith('0')) n = '62' + n.slice(1);
-  window.open(`https://wa.me/${n}?text=${encodeURIComponent($('#wa-pesan').value)}`, '_blank', 'noopener');
 };
