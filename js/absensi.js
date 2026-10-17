@@ -45,8 +45,7 @@ async function muatAbsensi() {
   if (e2) return alert('Gagal memuat absensi: ' + e2.message);
   absensiGuru = g || [];
   try {
-    const rk = (x) => rankJabat(jabatBaku(x.jabatan));
-    absensiGuru.sort((a, b) => rk(a) - rk(b) || ((jabatBaku(a.jabatan) === 'Guru Mapel' && jabatBaku(b.jabatan) === 'Guru Mapel') ? (rankMapel(a) - rankMapel(b) || String(a.nama || '').localeCompare(String(b.nama || ''), 'id')) : 0) || rankStatus(a) - rankStatus(b) || rankPangkat(b) - rankPangkat(a) || rankNama(a) - rankNama(b) || String(a.nama || '').localeCompare(String(b.nama || ''), 'id'));
+    absensiGuru.sort(bandingGuru);
   } catch { absensiGuru.sort((a, b) => String(a.nama || '').localeCompare(String(b.nama || ''), 'id')); }
   absensiMap = new Map((a || []).map((x) => [x.tanggal + '|' + x.guru_id, x]));
   absensiLibur = libur;
@@ -120,7 +119,7 @@ function renderRekap(bln) {
     <div class="min-w-[14rem] flex-1"><p>Catatan Khusus :</p><div class="mt-4 space-y-4"><div class="border-b border-dotted border-ink/60"></div><div class="border-b border-dotted border-ink/60"></div><div class="border-b border-dotted border-ink/60"></div></div></div>
     <div class="w-64 shrink-0"><p>Cikarang Pusat, <span class="ml-6">${BULAN_ID[m - 1]} ${y}</span></p><p>Kepala Sekolah,</p><p class="mt-14 font-bold underline">${esc(k.nama)}</p><p>NIP. ${esc(k.nip)}</p></div>
   </div>` : '';
-  $('#a-jumlah').textContent = `${absensiGuru.length} pegawai · ${BULAN_ID[m - 1]} ${y} · merah: Sabtu-Minggu + libur nasional + input manual`;
+  $('#ab-jumlah').textContent = `${absensiGuru.length} pegawai · ${BULAN_ID[m - 1]} ${y} · merah: Sabtu-Minggu + libur nasional + input manual`;
 }
 
 function renderDaftarMerah(bln) {

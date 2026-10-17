@@ -136,19 +136,21 @@
       </svg>
       <span class="bn-label">Dashboard</span>
     </a>
-    <a href="#guru" data-nav="guru" class="bn-item" title="Pegawai">
+    <button type="button" id="bn-grup-guru" data-grup="guru" class="bn-item" title="Pegawai" aria-haspopup="true" aria-expanded="false">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="9" cy="8" r="3.5" />
         <path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14.2a6.5 6.5 0 0 1 3.5 5.8" />
       </svg>
       <span class="bn-label">Pegawai</span>
-    </a>
-    <a href="#mutasi-masuk" data-nav="mutasi-masuk" class="bn-item" title="Mutasi">
+      <svg class="bn-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+    <button type="button" id="bn-grup-mutasi" data-grup="mutasi" class="bn-item" title="Mutasi" aria-haspopup="true" aria-expanded="false">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M7 7h13l-3-3M17 17H4l3 3" />
       </svg>
       <span class="bn-label">Mutasi</span>
-    </a>
+      <svg class="bn-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
     <a href="#absensi" data-nav="absensi" class="bn-item" title="Absensi">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
         <rect x="3" y="4" width="18" height="17" rx="2" />
@@ -178,6 +180,14 @@
       <span class="bn-label">Pengguna</span>
     </a>
   </nav>
+
+  <!-- Bottom sheet sub-menu (khusus layar HP) -->
+  <div id="bn-sheet-overlay" class="bn-sheet-overlay" aria-hidden="true"></div>
+  <div id="bn-sheet" class="bn-sheet" role="dialog" aria-modal="true" aria-label="Sub-menu" hidden>
+    <div class="bn-sheet-grab"></div>
+    <h3 id="bn-sheet-title" class="bn-sheet-title"></h3>
+    <div id="bn-sheet-body" class="bn-sheet-body"></div>
+  </div>
 
   <div class="app-main">
 
@@ -438,7 +448,7 @@
             <button id="a-pdf" class="rounded-lg bg-hijau text-white text-sm font-semibold px-4 py-2 hover:bg-ink">Unduh
               PDF</button>
           </div>
-          <p id="a-jumlah" class="mt-1 text-xs text-ink/60"></p>
+          <p id="ab-jumlah" class="mt-1 text-xs text-ink/60"></p>
         </article>
         <article class="rounded-xl bg-white p-4 min-w-0">
           <div class="overflow-x-auto rounded-lg border border-ink/10">

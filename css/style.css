@@ -68,7 +68,7 @@ body[data-side="open"] .app-main { margin-left: var(--side-open); }
   #j-toolbar input[type="date"] { flex: 1; padding: 5px 8px; }
   /* TTD manual pindah ke posisi Aksi; Tambah jadi tombol utama paling besar (selebar penuh) */
   #j-toolbar .j-ttd { order: 1; flex: 0 0 40%; min-width: 0; justify-content: center; padding: 6px 8px; white-space: nowrap; }
-  #j-toolbar > div.relative { order: 2; flex: 1 1 auto; min-width: 0; display: flex; }
+  #j-toolbar > div.relative { order: 2; flex: 1 1 calc(60% - 8px); min-width: 0; display: flex; }
   #j-toolbar #j-tambah { order: 3; flex: 1 1 100%; }
   #j-toolbar #j-tambah, #j-toolbar #j-aksi { display: flex; align-items: center; justify-content: center;
     width: 100%; font-size: 12px; padding: 7px 10px; line-height: 1.2; text-align: center; }
@@ -81,6 +81,36 @@ body[data-side="open"] .app-main { margin-left: var(--side-open); }
   #grafik-guru svg { width: 9rem !important; height: 9rem !important; }
   #donat-mutasi svg { width: 9rem !important; height: 9rem !important; }
   #bar-mutasi { overflow-x: clip; }
+  /* Tombol grup di bottom nav: panah kecil, aktif saat grup terbuka / sub-item aktif */
+  .bn-item[data-grup] { position: relative; }
+  .bn-item[data-grup] .bn-chev { position: absolute; top: 4px; right: 8px; width: 10px; height: 10px; opacity: .55;
+    transition: transform .2s; }
+  .bn-item[data-grup][data-active="true"] .bn-chev,
+  .bn-item[data-grup][aria-expanded="true"] .bn-chev { transform: rotate(180deg); opacity: 1; }
+  /* Overlay + sheet sub-menu */
+  .bn-sheet-overlay { display: none; position: fixed; inset: 0; z-index: 44; background: rgba(0,0,0,.5);
+    opacity: 0; transition: opacity .2s ease; }
+  .bn-sheet-overlay.open { display: block; opacity: 1; }
+  .bn-sheet { position: fixed; left: 0; right: 0; bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+    z-index: 46; background: #14231D; border-radius: 18px 18px 0 0;
+    box-shadow: 0 -8px 28px rgba(0,0,0,.35); padding: 10px 16px 14px;
+    max-height: 45vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    transform: translateY(calc(100% + 24px)); transition: transform .25s ease;
+    visibility: hidden; }
+  .bn-sheet.open { transform: translateY(0); visibility: visible; }
+  .bn-sheet-grab { width: 36px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.25);
+    margin: 0 auto 8px; }
+  .bn-sheet-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+    color: rgba(255,255,255,.5); margin: 0 0 6px; }
+  .bn-sheet-body a, .bn-sheet-body button { display: flex; align-items: center; gap: 10px; width: 100%;
+    padding: 11px 10px; border: 0; background: none; color: rgba(255,255,255,.85); border-radius: 10px;
+    font-size: 14px; font-weight: 600; text-decoration: none; text-align: left; cursor: pointer; }
+  .bn-sheet-body a:hover, .bn-sheet-body button:hover { background: rgba(255,255,255,.08); color: #fff; }
+  .bn-sheet-body a[data-active="true"], .bn-sheet-body button[data-active="true"] {
+    background: rgba(255,255,255,.12); color: #E3A72F; }
+  .bn-sheet-body .bn-sheet-ic { width: 18px; height: 18px; flex: none; opacity: .8; }
+  .bn-sheet-body .btn-rag-chat { background: #1F6B4F; color: #fff; margin-top: 6px; }
+  .bn-sheet-body .btn-rag-chat:hover { background: #2E8A6A; color: #fff; }
 }
 
 .side-item { display: flex; align-items: center; gap: 14px; width: 100%; height: 44px; padding: 0 11px;

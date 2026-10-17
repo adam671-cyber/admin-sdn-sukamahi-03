@@ -63,6 +63,8 @@ function terapkanRole() {
   document.querySelectorAll('#sidebar [data-nav], #bottomnav [data-nav]').forEach((x) => {
     if (x.dataset.nav !== 'jurnal') x.classList.add('hidden');
   });
+  // Sembunyikan tombol grup di bottom nav (HP) yang bukan Jurnal
+  document.querySelectorAll('#bottomnav .bn-item[data-grup]').forEach((b) => b.classList.add('hidden'));
   ['grup-guru', 'grup-mutasi'].forEach((id) => { const g = document.getElementById(id); if (g) g.classList.add('hidden'); });
   const nama = (profilSaya && profilSaya.nama) || session.user.email;
   const ue = $('#user-email');
@@ -134,6 +136,67 @@ $('#btn-grup-mutasi').onclick = () => {
   else setGrup('grup-mutasi', $('#grup-mutasi').dataset.open !== 'true');
 };
 
+/* ---------- Bottom sheet sub-menu (HP) ---------- */
+const BN_SHEET = {
+  guru: { judul: 'Pegawai', items: [
+    { nav: 'guru', label: 'Data Guru', ikon: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z' },
+    { nav: 'berkas', label: 'Berkas Digital', ikon: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5z' } ] },
+  mutasi: { judul: 'Mutasi', items: [
+    { nav: 'mutasi-masuk', label: 'Mutasi Masuk', ikon: 'M20 17v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2M4 8l4 4 4-4M8 4v8' },
+    { nav: 'mutasi-keluar', label: 'Mutasi Keluar', ikon: 'M4 7V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2v2M16 16l-4 4-4-4M12 12V4' } ] },
+};
+function bnSheetIkon(d) { return `<svg class="bn-sheet-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`; }
+let bnSheetPrevScrollY = 0;
+function bukaBnSheet(grupKey) {
+  const conf = BN_SHEET[grupKey]; if (!conf) return;
+  const sheet = $('#bn-sheet'), overlay = $('#bn-sheet-overlay');
+  let html = conf.items.map((it) =>
+    `<a href="#${it.nav}" data-nav="${it.nav}" class="bn-sheet-item" data-sheet="${grupKey}">${bnSheetIkon(it.ikon)}<span>${esc(it.label)}</span></a>`
+  ).join('');
+  if (grupKey === 'mutasi') {
+    html += `<button type="button" id="bn-rag-chat" class="btn-rag-chat">${bnSheetIkon('M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z')}<span>RAG Chat</span></button>`;
+  }
+  $('#bn-sheet-title').textContent = conf.judul;
+  $('#bn-sheet-body').innerHTML = html;
+  overlay.classList.add('open');
+  sheet.hidden = false;
+  // Simpan posisi scroll konten & pulihkan setelah sheet dibuka
+  bnSheetPrevScrollY = window.scrollY;
+  requestAnimationFrame(() => {
+    sheet.classList.add('open');
+    window.scrollTo(0, bnSheetPrevScrollY);
+  });
+  document.querySelectorAll('.bn-item[data-grup]').forEach((b) =>
+    b.setAttribute('aria-expanded', b.dataset.grup === grupKey ? 'true' : 'false'));
+  // Tandai item yang sedang aktif sesuai halaman saat ini
+  const navAktif = location.hash.slice(1);
+  $('#bn-sheet-body').querySelectorAll('[data-nav]').forEach((a) => { a.dataset.active = a.dataset.nav === navAktif; });
+  // RAG chat: delegasikan ke modal RAG di mutasi.js
+  const rag = $('#bn-rag-chat');
+  if (rag) rag.onclick = () => { tutupBnSheet(); if (typeof bukaModalRAG === 'function') bukaModalRAG(); };
+  sheet.scrollTop = 0;
+}
+function tutupBnSheet() {
+  const sheet = $('#bn-sheet'), overlay = $('#bn-sheet-overlay');
+  if (!sheet || sheet.hidden || !sheet.classList.contains('open')) return;
+  sheet.classList.remove('open');
+  overlay.classList.remove('open');
+  document.querySelectorAll('.bn-item[data-grup]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
+  setTimeout(() => { $('#bn-sheet-body').innerHTML = ''; }, 250);
+}
+['bn-grup-guru', 'bn-grup-mutasi'].forEach((id) => {
+  const b = $('#' + id);
+  if (!b) return;
+  b.onclick = () => {
+    const sheet = $('#bn-sheet');
+    const terbukaUntukGrupIni = sheet && !sheet.hidden && sheet.classList.contains('open') && b.getAttribute('aria-expanded') === 'true';
+    if (terbukaUntukGrupIni) { tutupBnSheet(); return; }
+    bukaBnSheet(b.dataset.grup);
+  };
+});
+$('#bn-sheet-overlay').onclick = tutupBnSheet;
+addEventListener('hashchange', () => tutupBnSheet());
+
 function route() {
   const semua = ['dashboard', 'guru', 'berkas', 'mutasi-masuk', 'mutasi-keluar', 'absensi', 'arsip', 'jurnal', 'pengguna'];
   let h = location.hash.slice(1);
@@ -159,6 +222,13 @@ function route() {
   const dalamGrupMutasi = v === 'mutasi-masuk' || v === 'mutasi-keluar';
   $('#btn-grup-mutasi').dataset.active = dalamGrupMutasi;
   if (dalamGrupMutasi) setGrup('grup-mutasi', true);
+  // Sinkronkan status tombol grup di bottom nav (HP)
+  const bnGuru = $('#bn-grup-guru');
+  if (bnGuru) bnGuru.dataset.active = dalamGrupGuru;
+  const bnMutasi = $('#bn-grup-mutasi');
+  if (bnMutasi) bnMutasi.dataset.active = dalamGrupMutasi;
+  // Tutup bottom sheet saat pindah menu
+  tutupBnSheet();
 }
 
 /* ---------- Kartu 1: tanggal real time ---------- */
@@ -227,16 +297,19 @@ const rankPangkat = (g) => {
   return { I: 1, II: 2, III: 3, IV: 4 }[m[1]] * 10 + (m[2].charCodeAt(0) - 64);
 };
 function renderGuru() {
-  const rank = (g) => rankJabat(jabatBaku(g.jabatan));
   const urut = urutGuru();
   $('#list-guru').innerHTML = urut.map((g) => `<li class="py-[2px] text-[11px] leading-tight break-words whitespace-normal" title="${esc(g.nama)}">${esc(g.nama)}</li>`).join('')
     || '<li class="py-2 text-[11px] text-ink/60">Belum ada data guru. Isi lewat menu Data Guru.</li>';
   renderGrafikGuru();
   muatJurnalDashboard();
 }
-function urutGuru() {
+// Pembanding urutan pegawai, dipakai bersama oleh dashboard (urutGuru) dan absensi.js
+function bandingGuru(a, b) {
   const rank = (g) => rankJabat(jabatBaku(g.jabatan));
-  return [...guru].sort((a, b) => rank(a) - rank(b) || ((jabatBaku(a.jabatan) === 'Guru Mapel' && jabatBaku(b.jabatan) === 'Guru Mapel') ? (rankMapel(a) - rankMapel(b) || String(a.nama || '').localeCompare(String(b.nama || ''), 'id')) : 0) || rankStatus(a) - rankStatus(b) || rankPangkat(b) - rankPangkat(a) || rankNama(a) - rankNama(b) || String(a.nama || '').localeCompare(String(b.nama || ''), 'id'));
+  return rank(a) - rank(b) || ((jabatBaku(a.jabatan) === 'Guru Mapel' && jabatBaku(b.jabatan) === 'Guru Mapel') ? (rankMapel(a) - rankMapel(b) || String(a.nama || '').localeCompare(String(b.nama || ''), 'id')) : 0) || rankStatus(a) - rankStatus(b) || rankPangkat(b) - rankPangkat(a) || rankNama(a) - rankNama(b) || String(a.nama || '').localeCompare(String(b.nama || ''), 'id');
+}
+function urutGuru() {
+  return [...guru].sort(bandingGuru);
 }
 
 /* ---------- Grafik donat: jumlah guru per jabatan ---------- */
