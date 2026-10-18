@@ -49,7 +49,7 @@ Deno.serve(async (req: Request) => {
       return Response.json({ error: 'GEMINI_API_KEY tidak dikonfigurasi di Supabase Secrets' }, { status: 500, headers });
     }
 
-    const geminiModel = model || Deno.env.get('AI_MODEL') || 'gemini-2.5-flash';
+    const geminiModel = model || Deno.env.get('AI_MODEL') || 'gemini-3.8-flash';
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`;
 
     const response = await fetch(geminiUrl, {
