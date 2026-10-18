@@ -1,8 +1,8 @@
 // Deploy: supabase functions deploy generate-modul
-// Secrets: supabase secrets set GEMINI_API_KEY=... AI_MODEL=gemini-3.8-flash
-// Edge Function untuk generate modul/RPP - dipanggil oleh Python di Render
+// Secrets: supabase secrets set GEMINI_API_KEY=... AI_MODEL=gemini-2.5-flash
+// Edge Function untuk generate modul/RPP - dipanggil oleh Python di Render / Vercel
 
-import { createClient } from 'npm:@supabase/supabase-js@2';
+declare const Deno: any;
 
 // Domain yang boleh memanggil function ini
 const ORIGIN_DIIZINKAN = [
@@ -12,24 +12,29 @@ const ORIGIN_DIIZINKAN = [
   'http://127.0.0.1:3000',
   'http://localhost:5000',
   'http://127.0.0.1:5000',
-  // Tambahkan domain Render di sini setelah deploy
-  // 'https://portal-sdn-sukamahi.onrender.com',
+  'https://admin-sdn-sukamahi-03.vercel.app',
+  'https://admin-sdn-sukamahi-03-bdlh.vercel.app',
+  'https://portal-sdn-sukamahi.onrender.com',
 ];
 
 function cors(req: Request): Record<string, string> {
   const origin = req.headers.get('Origin') ?? '';
-  const izinkan = ORIGIN_DIIZINKAN.includes(origin) ? origin : ORIGIN_DIIZINKAN[0];
+  const izinkan = ORIGIN_DIIZINKAN.includes(origin) ? origin : (origin || '*');
   return {
     'Access-Control-Allow-Origin': izinkan,
-    'Access-Control-Allow-Headers': 'authorization, apikey, content-type',
+    'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info, x-supabase-api-version',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Vary': 'Origin',
   };
 }
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
   const headers = cors(req);
   if (req.method === 'OPTIONS') return new Response('ok', { headers });
+
+  if (req.method !== 'POST') {
+    return Response.json({ error: 'Metode tidak didukung. Gunakan POST.' }, { status: 405, headers });
+  }
 
   try {
     const body = await req.json();
@@ -41,15 +46,18 @@ Deno.serve(async (req) => {
 
     const apiKey = Deno.env.get('GEMINI_API_KEY');
     if (!apiKey) {
-      return Response.json({ error: 'GEMINI_API_KEY tidak dikonfigurasi' }, { status: 500, headers });
+      return Response.json({ error: 'GEMINI_API_KEY tidak dikonfigurasi di Supabase Secrets' }, { status: 500, headers });
     }
 
-    const geminiModel = model || Deno.env.get('AI_MODEL') || 'gemini-3.8-flash';
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`;
+    const geminiModel = model || Deno.env.get('AI_MODEL') || 'gemini-2.5-flash';
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`;
 
     const response = await fetch(geminiUrl, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 
+        'content-type': 'application/json',
+        'x-goog-api-key': apiKey 
+      },
       body: JSON.stringify({
         contents: [{
           role: 'user',
@@ -71,8 +79,17 @@ Deno.serve(async (req) => {
       }, { status: response.status, headers });
     }
 
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const candidate = data.candidates?.[0];
+    const text = candidate?.content?.parts?.[0]?.text || '';
     
+    if (!text) {
+      const reason = candidate?.finishReason || data.promptFeedback?.blockReason || 'Respon kosong dari AI';
+      return Response.json({ 
+        error: `Gemini tidak menghasilkan teks (${reason})`,
+        details: data 
+      }, { status: 500, headers });
+    }
+
     return Response.json({ 
       text,
       model: geminiModel,

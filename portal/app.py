@@ -75,7 +75,7 @@ app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
 
-def call_gemini_via_supabase(prompt, model="gemini-3.8-flash", temperature=0.7, max_output_tokens=8192):
+def call_gemini_via_supabase(prompt, model="gemini-2.5-flash", temperature=0.7, max_output_tokens=8192):
     """Panggil Gemini melalui Supabase Edge Function untuk keamanan."""
     if not SUPABASE_URL or not SUPABASE_ANON_KEY:
         raise RuntimeError("SUPABASE_URL dan SUPABASE_ANON_KEY harus dikonfigurasi di environment variable.")
@@ -246,7 +246,7 @@ Format Output yang Diinginkan:
 
         # Minta Respon dari Gemini AI (via Supabase Edge Function)
         try:
-            gemini_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+            gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
             
             # Langkah 1: Dapatkan teks dari Gemini melalui Supabase Edge Function
             hasil = call_gemini_via_supabase(prompt, gemini_model, 0.7, 8192)
@@ -333,7 +333,7 @@ def kurikulum():
         )
 
         try:
-            gemini_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+            gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
             hasil = call_gemini_via_supabase(prompt, gemini_model, 0.7, 8192)
 
             try:
