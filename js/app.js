@@ -166,6 +166,10 @@ function bukaBnSheet(grupKey) {
     sheet.classList.add('open');
     window.scrollTo(0, bnSheetPrevScrollY);
   });
+  // Hapus active state dari semua item navigasi biasa saat sheet terbuka
+  document.querySelectorAll('#bottomnav .bn-item:not([data-grup])').forEach((item) => {
+    item.dataset.active = 'false';
+  });
   document.querySelectorAll('.bn-item[data-grup]').forEach((b) =>
     b.setAttribute('aria-expanded', b.dataset.grup === grupKey ? 'true' : 'false'));
   // Tandai item yang sedang aktif sesuai halaman saat ini
@@ -182,6 +186,12 @@ function tutupBnSheet() {
   sheet.classList.remove('open');
   overlay.classList.remove('open');
   document.querySelectorAll('.bn-item[data-grup]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
+  // Kembalikan active state ke item navigasi sesuai hash URL
+  // Jika hash kosong, berarti dashboard yang aktif
+  const navAktif = location.hash.slice(1) || 'dashboard';
+  document.querySelectorAll('#bottomnav .bn-item:not([data-grup])').forEach((item) => {
+    item.dataset.active = item.dataset.nav === navAktif;
+  });
   setTimeout(() => { $('#bn-sheet-body').innerHTML = ''; }, 250);
 }
 ['bn-grup-guru', 'bn-grup-mutasi'].forEach((id) => {
