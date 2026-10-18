@@ -57,11 +57,15 @@ function terapkanRole() {
   const terbatas = hanyaJurnal();
   const navJurnal = $('#nav-jurnal');
   const navPengguna = $('#nav-pengguna');
+  const navPortal = $('[data-nav="portal"]');
   if (navJurnal) navJurnal.classList.toggle('hidden', false);
   if (navPengguna) navPengguna.classList.toggle('hidden', !adalahAdmin());
+  // Portal Pembelajaran: untuk admin, pegawai, dan guru
+  const bolehPortal = adalahAdmin() || peran() === 'pegawai' || peran() === 'guru';
+  if (navPortal) navPortal.classList.toggle('hidden', !bolehPortal);
   if (!terbatas) return;
   document.querySelectorAll('#sidebar [data-nav], #bottomnav [data-nav]').forEach((x) => {
-    if (x.dataset.nav !== 'jurnal') x.classList.add('hidden');
+    if (x.dataset.nav !== 'jurnal' && x.dataset.nav !== 'portal') x.classList.add('hidden');
   });
   // Sembunyikan tombol grup di bottom nav (HP) yang bukan Jurnal
   document.querySelectorAll('#bottomnav .bn-item[data-grup]').forEach((b) => b.classList.add('hidden'));
@@ -92,7 +96,8 @@ function terapkanRole() {
   jam(); setInterval(jam, 1000);
   addEventListener('hashchange', route);
   if (hanyaJurnal()) {
-    if (location.hash !== '#jurnal') location.hash = '#jurnal';
+    const bolehPortal = adalahAdmin() || peran() === 'pegawai' || peran() === 'guru';
+    if (location.hash !== '#jurnal' && !(location.hash === '#portal' && bolehPortal)) location.hash = '#jurnal';
     route();
     return;
   }
@@ -208,13 +213,14 @@ $('#bn-sheet-overlay').onclick = tutupBnSheet;
 addEventListener('hashchange', () => tutupBnSheet());
 
 function route() {
-  const semua = ['dashboard', 'guru', 'berkas', 'mutasi-masuk', 'mutasi-keluar', 'absensi', 'arsip', 'jurnal', 'pengguna'];
+  const semua = ['dashboard', 'guru', 'berkas', 'mutasi-masuk', 'mutasi-keluar', 'absensi', 'arsip', 'jurnal', 'portal', 'pengguna'];
   let h = location.hash.slice(1);
   if (hanyaJurnal()) {
-    if (h !== 'jurnal') { location.hash = '#jurnal'; h = 'jurnal'; }
-    semua.forEach((n) => { const el = $('#view-' + n); if (el) el.classList.toggle('hidden', n !== 'jurnal'); });
-    document.querySelectorAll('[data-nav]').forEach((x) => { x.dataset.active = x.dataset.nav === 'jurnal'; });
-    if (typeof muatJurnal === 'function') muatJurnal();
+    const bolehPortal = adalahAdmin() || peran() === 'pegawai' || peran() === 'guru';
+    if (h !== 'jurnal' && !(h === 'portal' && bolehPortal)) { location.hash = '#jurnal'; h = 'jurnal'; }
+    semua.forEach((n) => { const el = $('#view-' + n); if (el) el.classList.toggle('hidden', n !== h); });
+    document.querySelectorAll('[data-nav]').forEach((x) => { x.dataset.active = x.dataset.nav === h; });
+    if (h === 'jurnal' && typeof muatJurnal === 'function') muatJurnal();
     return;
   }
   const v = semua.includes(h) ? h : 'dashboard';

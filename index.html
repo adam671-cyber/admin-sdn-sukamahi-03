@@ -7,7 +7,8 @@
                style-src   'self' 'unsafe-inline' https://fonts.googleapis.com;
                font-src    https://fonts.gstatic.com;
                img-src     'self' data: blob: https://*.supabase.co;
-               connect-src 'self' https://*.supabase.co https://date.nager.at;">
+               connect-src 'self' https://*.supabase.co https://date.nager.at;
+               frame-src   'self' http://127.0.0.1:5000 https://portal-sdn-sukamahi.onrender.com;">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Dashboard · Admin SDN Sukamahi 03</title>
@@ -114,6 +115,12 @@
         </svg>
         <span class="side-label">Jurnal Harian</span>
       </a>
+      <a href="#portal" data-nav="portal" class="side-item" title="Portal Pembelajaran">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+          <path d="M2 12l20-6v12a2 2 0 0 0 2 2H4a2 2 0 0 1-2-2z" />
+        </svg>
+        <span class="side-label">Portal Pembelajaran</span>
+      </a>
       <a href="#pengguna" data-nav="pengguna" id="nav-pengguna" class="side-item hidden" title="Pengguna">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
           stroke-linejoin="round">
@@ -171,6 +178,12 @@
         <path d="M9 8h6M9 12h6M9 16h4" />
       </svg>
       <span class="bn-label">Jurnal</span>
+    </a>
+    <a href="#portal" data-nav="portal" class="bn-item" title="Portal Pembelajaran">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+        <path d="M2 12l20-6v12a2 2 0 0 0 2 2H4a2 2 0 0 1-2-2z" />
+      </svg>
+      <span class="bn-label">Portal</span>
     </a>
     <a href="#pengguna" data-nav="pengguna" class="bn-item hidden" title="Pengguna">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -581,6 +594,14 @@
             </table>
           </div>
         </article>
+      </section>
+
+      <!-- PORTAL PEMBELAJARAN -->
+      <section id="view-portal" class="hidden h-[calc(100vh-8rem)] overflow-y-auto">
+        <iframe src="https://portal-sdn-sukamahi.onrender.com"
+          class="w-full h-[calc(100vh-8rem)] border-0 bg-white"
+          title="Portal Pembelajaran SDN Sukamahi 03"
+          loading="lazy"></iframe>
       </section>
     </main>
   </div>
