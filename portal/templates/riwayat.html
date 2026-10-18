@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Riwayat Dokumen - SDN Sukamahi 03</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome Icon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Marked.js untuk render Markdown ke HTML -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <style>
+        .navbar-custom {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            padding: 12px 24px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .nav-pills .nav-link {
+            color: #475569;
+            font-weight: 600;
+            border-radius: 8px;
+            padding: 8px 16px;
+            transition: all 0.2s ease;
+        }
+
+        .nav-pills .nav-link.active {
+            background-color: #2563eb;
+            color: white;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+        }
+
+        .badge-jenis {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body class="bg-light">
+
+    <!-- NAVBAR MODERN (Sama seperti Dashboard) -->
+    <nav class="navbar navbar-expand-lg navbar-custom mb-4">
+        <div class="container-fluid">
+            <a class="navbar-brand d-flex align-items-center text-white fw-bold" href="/dashboard">
+                <div class="bg-primary bg-gradient p-2 rounded-3 me-2 d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
+                    <i class="fa-solid fa-graduation-cap text-white fs-5"></i>
+                </div>
+                <span>SDN Sukamahi 03 <span class="fw-light text-muted fs-6">| AI Portal</span></span>
+            </a>
+
+            <div class="d-flex align-items-center gap-2 ms-auto">
+                <a href="/dashboard" class="btn btn-outline-light btn-sm fw-bold me-2">
+                    <i class="fa-solid fa-arrow-left me-1"></i> Kembali ke Dashboard
+                </a>
+
+                <div class="vr bg-secondary mx-1 opacity-50" style="height: 25px;"></div>
+
+                <div class="text-white me-2 d-none d-md-block fs-7">
+                    <i class="fa-regular fa-user-circle me-1 text-info"></i> {{ session.get('username', 'Guru') }}
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container pb-5">
+        <div class="d-flex align-items-center justify-content-between mb-4">
+            <h3 class="fw-bold text-primary mb-0"><i class="fa-solid fa-clock-rotate-left me-2"></i>Riwayat Dokumen Pembelajaran</h3>
+        </div>
+
+        {% if riwayat_per_kelas %}
+
+        <!-- TAB FILTER BERDASARKAN DOKUMEN/VALUE -->
+        <ul class="nav nav-pills mb-4 bg-white p-2 rounded-3 shadow-sm d-flex flex-wrap gap-1" id="pills-tab" role="tablist">
+            <li class="nav-item">
+                <button class="nav-link active" id="tab-semua" data-bs-toggle="pill" data-bs-target="#content-semua">
+                    <i class="fa-solid fa-folder me-1"></i> Semua Dokumen
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" id="tab-rpp" data-bs-toggle="pill" data-bs-target="#content-rpp">
+                    <i class="fa-solid fa-book-open me-1"></i> Modul Ajar / RPP
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" id="tab-silabus" data-bs-toggle="pill" data-bs-target="#content-silabus">
+                    <i class="fa-solid fa-scroll me-1"></i> Silabus
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" id="tab-cp" data-bs-toggle="pill" data-bs-target="#content-cp">
+                    <i class="fa-solid fa-bullseye me-1"></i> CP
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" id="tab-atp" data-bs-toggle="pill" data-bs-target="#content-atp">
+                    <i class="fa-solid fa-route me-1"></i> ATP
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" id="tab-prota" data-bs-toggle="pill" data-bs-target="#content-prota">
+                    <i class="fa-solid fa-calendar-days me-1"></i> Prota-Promes / Kalender
+                </button>
+            </li>
+        </ul>
+
+        <!-- ISI KONTEN TAB -->
+        <div class="tab-content" id="pills-tabContent">
+
+            <!-- 1. TAB SEMUA DOKUMEN -->
+            <div class="tab-pane fade show active" id="content-semua">
+                <div class="accordion" id="accordionKelasSemua">
+                    {% for jenjang, daftar_rpp in riwayat_per_kelas.items() %}
+                    <div class="accordion-item shadow-sm mb-3 border-0 rounded overflow-hidden">
+                        <h2 class="accordion-header" id="heading-semua-{{ loop.index }}">
+                            <button class="accordion-button fw-bold text-dark bg-white" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-semua-{{ loop.index }}" aria-expanded="true">
+                                <i class="fa-solid fa-layer-group text-primary me-2"></i> {{ jenjang }} 
+                                <span class="badge bg-primary rounded-pill ms-2">{{ daftar_rpp|length }} Dokumen</span>
+                            </button>
+                        </h2>
+                        <div id="collapse-semua-{{ loop.index }}" class="accordion-collapse collapse show" data-bs-parent="#accordionKelasSemua">
+                            <div class="accordion-body bg-light">
+                                <div class="row">
+                                    {% for item in daftar_rpp %}
+                                    <div class="col-md-6 mb-3">
+                                        <div class="card h-100 shadow-sm border-0">
+                                            <div class="card-body d-flex flex-column justify-content-between">
+                                                <div>
+                                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                                        <span class="badge badge-jenis 
+                                                            {% if 'silabus' in (item.jenis_output or '')|lower %}bg-info text-dark
+                                                            {% elif 'cp' in (item.jenis_output or '')|lower %}bg-success
+                                                            {% elif 'atp' in (item.jenis_output or '')|lower %}bg-warning text-dark
+                                                            {% elif 'prota' in (item.jenis_output or '')|lower or 'kalender' in (item.jenis_output or '')|lower %}bg-dark
+                                                            {% else %}bg-primary{% endif %}">
+                                                            {{ item.jenis_output|default('RPP', true)|upper }}
+                                                        </span>
+                                                        <small class="text-muted"><i class="fa-regular fa-calendar me-1"></i> {{ item.created_at }}</small>
+                                                    </div>
+                                                    <h5 class="card-title fw-bold text-dark mb-1">{{ item.topik }}</h5>
+                                                    <h6 class="card-subtitle mb-2 text-muted"><i class="fa-solid fa-book me-1"></i> {{ item.mapel }}</h6>
+                                                </div>
+                                                <div class="mt-3 d-flex gap-2">
+                                                    <button type="button" class="btn btn-primary btn-sm flex-grow-1 fw-bold" data-bs-toggle="modal" data-bs-target="#modalRPP-{{ item.id }}">
+                                                        <i class="fa-solid fa-eye me-1"></i> Lihat Dokumen
+                                                    </button>
+                                                    {% if session.get('role') == 'admin' %}
+                                                    <form action="/hapus_riwayat/{{ item.id }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus dokumen ini?');">
+                                                        <button type="submit" class="btn btn-outline-danger btn-sm fw-bold" title="Hapus Riwayat">
+                                                            <i class="fa-solid fa-trash"></i>
+                                                        </button>
+                                                    </form>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- TAB GENERIK UNTUK MASING-MASING KATEGORI -->
+            {% set filter_list = [
+                ('content-rpp', ['rpp', 'modul ajar']),
+                ('content-silabus', ['silabus']),
+                ('content-cp', ['cp', 'capaian']),
+                ('content-atp', ['atp', 'alur']),
+                ('content-prota', ['prota', 'promes', 'kalender'])
+            ] %}
+
+            {% for tab_id, keywords in filter_list %}
+            <div class="tab-pane fade" id="{{ tab_id }}">
+                <div class="row">
+                    {% set ns = namespace(found=false) %}
+                    {% for jenjang, daftar_rpp in riwayat_per_kelas.items() %}
+                        {% for item in daftar_rpp %}
+                            {% set item_type = (item.jenis_output or 'rpp')|lower %}
+                            {% set match = namespace(flag=false) %}
+                            {% for kw in keywords %}
+                                {% if kw in item_type %}
+                                    {% set match.flag = true %}
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if match.flag %}
+                                {% set ns.found = true %}
+                                <div class="col-md-6 mb-3">
+                                    <div class="card h-100 shadow-sm border-0">
+                                        <div class="card-body d-flex flex-column justify-content-between">
+                                            <div>
+                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                    <span class="badge bg-secondary badge-jenis">{{ jenjang }}</span>
+                                                    <small class="text-muted"><i class="fa-regular fa-calendar me-1"></i> {{ item.created_at }}</small>
+                                                </div>
+                                                <h5 class="card-title fw-bold text-dark mb-1">{{ item.topik }}</h5>
+                                                <h6 class="card-subtitle mb-2 text-muted"><i class="fa-solid fa-book me-1"></i> {{ item.mapel }}</h6>
+                                            </div>
+                                            <div class="mt-3 d-flex gap-2">
+                                                <button type="button" class="btn btn-primary btn-sm flex-grow-1 fw-bold" data-bs-toggle="modal" data-bs-target="#modalRPP-{{ item.id }}">
+                                                    <i class="fa-solid fa-eye me-1"></i> Lihat Dokumen
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    {% endfor %}
+
+                    {% if not ns.found %}
+                    <div class="col-12">
+                        <div class="alert alert-warning border-0 shadow-sm"><i class="fa-solid fa-circle-exclamation me-2"></i>Belum ada dokumen untuk kategori ini.</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+
+        </div>
+
+        <!-- MODAL POP-UP (Hanya dirender sekali per item) -->
+        {% for jenjang, daftar_rpp in riwayat_per_kelas.items() %}
+            {% for item in daftar_rpp %}
+            <div class="modal fade" id="modalRPP-{{ item.id }}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header bg-primary text-white">
+                            <h5 class="modal-title fw-bold"><i class="fa-solid fa-file-lines me-2"></i> {{ item.topik }} - {{ item.mapel }} ({{ item.jenjang }})</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body bg-white p-4">
+                            <div id="content-{{ item.id }}" class="markdown-body"></div>
+                            <script>
+                                document.addEventListener("DOMContentLoaded", function() {
+                                    var rawMarkdown = {{ item.hasil_markdown | tojson }};
+                                    document.getElementById("content-{{ item.id }}").innerHTML = marked.parse(rawMarkdown || "");
+                                });
+                            </script>
+                        </div>
+                        <div class="modal-footer bg-light">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                            <button type="button" onclick="window.print()" class="btn btn-success fw-bold"><i class="fa-solid fa-print me-1"></i> Cetak / Simpan PDF</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% endfor %}
+
+        {% else %}
+            <div class="alert alert-info shadow-sm"><i class="fa-solid fa-info-circle me-2"></i>Belum ada riwayat RPP atau dokumen kurikulum yang tersimpan.</div>
+        {% endif %}
+    </div>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

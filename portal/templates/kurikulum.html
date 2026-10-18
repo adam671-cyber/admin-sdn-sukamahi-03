@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perangkat Kurikulum - SDN Sukamahi 03</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root { --primary-gradient: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); }
+        body { background-color: #f3f6f9; font-family: 'Segoe UI', sans-serif; }
+        .header-banner { background: var(--primary-gradient); color: white; border-radius: 0 0 25px 25px; padding: 30px 20px; }
+        .card-custom { border: none; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); background: #ffffff; }
+        .section-title-alt { border-left: 5px solid #20c997; padding-left: 10px; font-weight: 700; color: #0f5132; }
+        #output-content { background: #ffffff; padding: 30px; border-radius: 12px; border: 1px solid #e9ecef; line-height: 1.7; }
+    </style>
+</head>
+<body>
+
+<!-- NAVBAR MODERN KHUSUS HALAMAN KURIKULUM -->
+<style>
+    .navbar-custom {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        padding: 12px 24px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .nav-link-custom {
+        color: #94a3b8;
+        font-weight: 500;
+        padding: 8px 16px;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        text-decoration: none;
+    }
+
+    .nav-link-custom:hover {
+        color: #ffffff;
+        background: rgba(255,255,255,0.08);
+    }
+</style>
+
+<nav class="navbar navbar-expand-lg navbar-custom mb-4">
+    <div class="container-fluid">
+        <!-- Brand Logo & Nama Sekolah -->
+        <a class="navbar-brand d-flex align-items-center text-white fw-bold" href="/dashboard">
+            <div class="bg-primary bg-gradient p-2 rounded-3 me-2 d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
+                <i class="fa-solid fa-graduation-cap text-white fs-5"></i>
+            </div>
+            <span>SDN Sukamahi 03 <span class="fw-light text-muted fs-6">| AI Portal</span></span>
+        </a>
+
+        <div class="d-flex align-items-center gap-2 ms-auto">
+            <!-- Navigasi Riwayat -->
+            <a href="/riwayat" class="nav-link-custom d-flex align-items-center gap-2">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                <span>Riwayat RPP & Kurikulum</span>
+            </a>
+
+            <div class="vr bg-secondary mx-2 opacity-50" style="height: 25px;"></div>
+
+            <!-- Identitas User -->
+            <div class="text-white me-2 d-none d-md-block fs-7">
+                <i class="fa-regular fa-user-circle me-1 text-info"></i> {{ session.get('username', 'Guru') }}
+            </div>
+        </div>
+    </div>
+</nav>
+
+    <div class="container pb-5">
+        <!-- Navigasi Menu Terpisah -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="nav nav-pills nav-justified bg-white p-2 rounded-3 shadow-sm">
+                    <a class="nav-link text-dark fw-bold" href="{{ url_for('dashboard') }}">
+                        <i class="fa-solid fa-pen-ruler me-2"></i>1. Penilaian & Modul Harian
+                    </a>
+                    <a class="nav-link active bg-success fw-bold" href="{{ url_for('kurikulum') }}">
+                        <i class="fa-solid fa-folder-tree me-2"></i>2. Dokumen Kurikulum Khusus
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="card card-custom p-4 mb-5">
+                    <form method="POST">
+                        <h5 class="section-title-alt mb-4"><i class="fa-solid fa-folder-tree me-2"></i>Perangkat Perencanaan Kurikulum</h5>
+                        
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Mata Pelajaran</label>
+                                <input type="text" name="mapel" class="form-control" placeholder="Contoh: IPAS" required value="{{ form_data.mapel or '' }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Jenjang Kelas</label>
+                                <select name="jenjang" class="form-select" required>
+                                    <option value="SD Kelas 1" {% if form_data.jenjang == 'SD Kelas 1' %}selected{% endif %}>Kelas 1 SD</option>
+                                    <option value="SD Kelas 2" {% if form_data.jenjang == 'SD Kelas 2' %}selected{% endif %}>Kelas 2 SD</option>
+                                    <option value="SD Kelas 3" {% if form_data.jenjang == 'SD Kelas 3' %}selected{% endif %}>Kelas 3 SD</option>
+                                    <option value="SD Kelas 4" {% if form_data.jenjang == 'SD Kelas 4' %}selected{% endif %}>Kelas 4 SD</option>
+                                    <option value="SD Kelas 5" {% if form_data.jenjang == 'SD Kelas 5' %}selected{% endif %}>Kelas 5 SD</option>
+                                    <option value="SD Kelas 6" {% if form_data.jenjang == 'SD Kelas 6' %}selected{% endif %}>Kelas 6 SD</option>
+                                </select>
+                            </div>
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold">Topik / Cakupan Materi Utama</label>
+                                <input type="text" name="topik" class="form-control" placeholder="Contoh: Semester 1 Ganjil Lengkap" required value="{{ form_data.topik or '' }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Pilih Dokumen Kurikulum</label>
+                                <select name="jenis_output_kurikulum" class="form-select border-success" required>
+                                    <option value="Silabus Pembelajaran Lengkap" {% if form_data.jenis_output_kurikulum == 'Silabus Pembelajaran Lengkap' %}selected{% endif %}>📜 Silabus Pembelajaran</option>
+                                    <option value="Capaian Pembelajaran (CP)" {% if form_data.jenis_output_kurikulum == 'Capaian Pembelajaran (CP)' %}selected{% endif %}>🎯 Capaian Pembelajaran (CP)</option>
+                                    <option value="Alur Tujuan Pembelajaran (ATP)" {% if form_data.jenis_output_kurikulum == 'Alur Tujuan Pembelajaran (ATP)' %}selected{% endif %}>🗺️ Alur Tujuan Pembelajaran (ATP)</option>
+                                    <option value="Kalender Pendidikan & Program Semester" {% if form_data.jenis_output_kurikulum == 'Kalender Pendidikan & Program Semester' %}selected{% endif %}>🗓️ Kalender Pendidikan / Prota-Promes</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Jumlah Poin / Alokasi Minggu</label>
+                                <input type="number" name="jumlah" class="form-control" value="{{ form_data.jumlah or '16' }}" min="1" max="50" required>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="btn-submit-kurikulum" class="btn btn-primary w-100 py-3 fw-bold">
+                            <i class="fa-solid fa-wand-magic-sparkles me-2"></i>Generate Dokumen Kurikulum AI
+                        </button>
+                    </form>
+                </div>
+
+                <script>
+                    // Menampilkan indikator loading saat Form Kurikulum dikirim
+                    document.querySelector('form').addEventListener('submit', function() {
+                        var btn = document.getElementById('btn-submit-kurikulum');
+                        btn.disabled = true;
+                        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Sedang Memuat & Memproses Dokumen Kurikulum AI... Mohon Tunggu Sebentar';
+                    });
+                </script>
+
+                {% if hasil %}
+                <div class="card card-custom p-4 mb-5 border-top border-4 border-success">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="fw-bold text-success m-0"><i class="fa-solid fa-file-circle-check me-2"></i>Hasil Output Dokumen Kurikulum AI</h4>
+                        <button onclick="downloadWordDoc()" class="btn btn-success fw-bold px-3 py-2 shadow-sm">
+                            <i class="fa-solid fa-file-word me-2"></i>Simpan ke Word (.doc)
+                        </button>
+                    </div>
+                    <hr>
+                    <div id="output-content"></div>
+                </div>
+
+                <script>
+                    document.getElementById('output-content').innerHTML = marked.parse({{ hasil|tojson }});
+                    function downloadWordDoc() {
+                        var header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'></head><body>";
+                        var footer = "</body></html>";
+                        var sourceHTML = header + document.getElementById("output-content").innerHTML + footer;
+                        var source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(sourceHTML);
+                        var fileDownload = document.createElement("a");
+                        document.body.appendChild(fileDownload);
+                        fileDownload.href = source;
+                        fileDownload.download = 'Dokumen_Kurikulum_SDN_Sukamahi_03.doc';
+                        fileDownload.click();
+                        document.body.removeChild(fileDownload);
+                    }
+                </script>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</body>
+</html>

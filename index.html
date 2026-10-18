@@ -8,7 +8,7 @@
                font-src    https://fonts.gstatic.com;
                img-src     'self' data: blob: https://*.supabase.co;
                connect-src 'self' https://*.supabase.co https://date.nager.at https://admin-sdn-sukamahi-03.vercel.app;
-               frame-src   'self' http://127.0.0.1:5000 https://admin-sdn-sukamahi-03.vercel.app;">
+               frame-src   'self' http://localhost:5001 http://127.0.0.1:5001;">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Dashboard · Admin SDN Sukamahi 03</title>
@@ -598,7 +598,10 @@
 
       <!-- PORTAL PEMBELAJARAN -->
       <section id="view-portal" class="hidden h-[calc(100vh-8rem)] overflow-y-auto">
-        <iframe src="https://admin-sdn-sukamahi-03.vercel.app/api/generate"
+        <p id="portal-unconfigured" class="m-4 rounded-lg bg-amber-50 p-4 text-amber-900">
+          Portal pembelajaran belum dikonfigurasi untuk domain deployment ini.
+        </p>
+        <iframe id="portal-frame" src="about:blank"
           class="w-full h-[calc(100vh-8rem)] border-0 bg-white"
           title="Portal Pembelajaran SDN Sukamahi 03"
           loading="lazy"></iframe>
@@ -732,6 +735,16 @@
     integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o"
     crossorigin="anonymous"></script>
   <script src="js/config.js"></script>
+  <script>
+    const portalFrame = document.getElementById('portal-frame');
+    const portalNotice = document.getElementById('portal-unconfigured');
+    const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+    const portalUrl = isLocal ? 'http://127.0.0.1:5001/' : window.PORTAL_URL;
+    if (portalUrl) {
+      portalFrame.src = portalUrl;
+      portalNotice.classList.add('hidden');
+    }
+  </script>
   <script src="js/app.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
     integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk"

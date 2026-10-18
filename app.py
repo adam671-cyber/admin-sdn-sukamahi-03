@@ -1,5 +1,6 @@
 import json
 import os
+import secrets
 import sys
 from datetime import datetime
 
@@ -27,26 +28,44 @@ else:
 # ==========================================
 # 2. INISIALISASI FLASK & CONFIG
 # ==========================================
+load_dotenv(os.path.join(env_dir, ".env"))
+load_dotenv()
+
 template_dir = os.path.join(base_dir, 'templates')
 static_dir = os.path.join(base_dir, 'static')
-app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
+app = Flask(
+    __name__,
+    template_folder=template_dir,
+    static_folder=None if os.getenv("VERCEL") else static_dir,
+)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
-app.secret_key = os.getenv("FLASK_SECRET_KEY", "sk_sukamahi03_rahasia_super_aman")
+flask_secret_key = os.getenv("FLASK_SECRET_KEY", "")
+if not flask_secret_key or flask_secret_key.startswith("your_"):
+    if os.getenv("VERCEL"):
+        raise RuntimeError("FLASK_SECRET_KEY harus dikonfigurasi di environment Vercel.")
+    flask_secret_key = secrets.token_hex(32)
+app.secret_key = flask_secret_key
 
 # Allow iframe embedding for portal feature
 @app.after_request
 def set_frame_options(response):
-    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
-    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co https://date.nager.at; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+    response.headers.pop('X-Frame-Options', None)
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
+        "font-src 'self' data: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
+        "img-src 'self' data: blob: https://*.supabase.co; "
+        "connect-src 'self' https://*.supabase.co; "
+        "object-src 'none'; base-uri 'self'; "
+        "frame-ancestors 'self' http://localhost:62807 http://127.0.0.1:62807 "
+        "https://admin-sdn-sukamahi-03.vercel.app; form-action 'self'"
+    )
     return response
 
 UPLOAD_FOLDER = os.path.join(base_dir, 'static', 'uploads')
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
-
-load_dotenv(os.path.join(env_dir, ".env"))
-load_dotenv()
 
 # ==========================================
 # 3. KONFIGURASI GEMINI AI (via Supabase Edge Function)
@@ -73,7 +92,7 @@ def call_gemini_via_supabase(prompt, model="gemini-3.8-flash", temperature=0.7, 
             "temperature": temperature,
             "maxOutputTokens": max_output_tokens
         },
-        timeout=300
+        timeout=240
     )
     
     if not response.ok:
@@ -85,21 +104,15 @@ def call_gemini_via_supabase(prompt, model="gemini-3.8-flash", temperature=0.7, 
     
     return data.get('text', '')
 
-# Backward compatibility - jika ada API key langsung, gunakan langsung
-api_key = os.getenv("GEMINI_API_KEY")
-gemini_client = None
-if api_key:
-    from google import genai
-    gemini_client = genai.Client(api_key=api_key)
-    print("INFO: Menggunakan Gemini API langsung (untuk development).")
-else:
-    print("INFO: Akan menggunakan Supabase Edge Function untuk Gemini API.")
-
 # ==========================================
 # 4. INISIALISASI FIREBASE CLOUD FIRESTORE
 # ==========================================
 firebase_key_path = os.path.join(base_dir, "serviceAccountKey.json")
 firebase_json_env = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
+if firebase_json_env and firebase_json_env.startswith("your_"):
+    firebase_json_env = None
+if not os.path.exists(firebase_key_path) and not os.getenv("VERCEL"):
+    firebase_key_path = os.path.join(os.path.dirname(base_dir), "serviceAccountKey.json")
 
 if not firebase_admin._apps:
     try:
@@ -124,6 +137,7 @@ if not firebase_admin._apps:
 def dashboard():
     hasil = None
     form_data = {}
+    gambar_urls = []
 
     if request.method == 'POST':
         mapel = request.form.get('mapel', '')
@@ -140,9 +154,6 @@ def dashboard():
             'jumlah': jumlah, 'catatan_opsional': catatan_opsional
         }
         
-        # Inisialisasi variabel gambar
-        gambar_urls = []
-
         instruksi_catatan = f"\nCatatan/Instruksi Tambahan dari Guru: {catatan_opsional}\n" if catatan_opsional.strip() else ""
 
         # Instruksi gambar - meminta ilustrasi yang relevan dengan materi
@@ -240,49 +251,10 @@ Format Output yang Diinginkan:
             # Langkah 1: Dapatkan teks dari Gemini melalui Supabase Edge Function
             hasil = call_gemini_via_supabase(prompt, gemini_model, 0.7, 8192)
             
-            # Langkah 2: Generate gambar (jika diperlukan)
-            gambar_list = []
-            image_model = os.getenv("GEMINI_IMAGE_MODEL", "gemini-3.8-flash")
-            
-            # Buat deskripsi gambar berdasarkan topik dan catatan opsional
-            deskripsi_gambar = f"{topik}"
-            if catatan_opsional.strip():
-                deskripsi_gambar += f" - {catatan_opsional}"
-            
-            try:
-                image_prompt = f"Buatkan gambar ilustrasi edukatif untuk anak SD tentang: {deskripsi_gambar}. Gaya: cerah, menarik, sesuai untuk materi pembelajaran sekolah dasar, dengan warna-warni dan karakter yang ramah."
-                image_response = call_gemini_via_supabase(image_prompt, image_model, 0.7, 2048)
-                
-                # Jika response mengandung data gambar (base64), parse
-                if image_response and not image_response.startswith('Maaf'):
-                    gambar_list.append({
-                        'data': image_response,
-                        'mime_type': 'image/png',
-                        'deskripsi': deskripsi_gambar
-                    })
-            except Exception as img_error:
-                print(f"Gagal generate gambar: {img_error}")
-
             # Simpan Otomatis ke Cloud Firestore (Khusus RPP)
             if jenis_output not in ['Soal Pilihan Ganda (HOTS & LOTS)', 'pg', 'Soal Uraian / Esai', 'esai']:
                 try:
                     db_firestore = firestore.client()
-                    # Simpan gambar ke storage jika ada
-                    gambar_urls = []
-                    for i, gambar in enumerate(gambar_list):
-                        try:
-                            # Simpan gambar ke folder static/uploads
-                            import base64
-                            gambar_bytes = base64.b64decode(gambar['data'])
-                            ekstensi = gambar['mime_type'].split('/')[-1] if '/' in gambar['mime_type'] else 'png'
-                            nama_file = f"{topik.replace(' ', '_')}_{i+1}.{ekstensi}"
-                            path = os.path.join(UPLOAD_FOLDER, nama_file)
-                            with open(path, 'wb') as f:
-                                f.write(gambar_bytes)
-                            gambar_urls.append(f"/static/uploads/{nama_file}")
-                        except Exception as e_gambar:
-                            print(f"Gagal menyimpan gambar: {e_gambar}")
-                    
                     db_firestore.collection('riwayat_rpp').add({
                         'username': 'Admin',
                         'mapel': mapel,
