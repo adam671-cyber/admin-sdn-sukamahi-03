@@ -1,7 +1,6 @@
 # Vercel Serverless Function untuk generate modul/RPP
 # Deploy: otomatis dari Vercel ketika push ke GitHub
 # Environment Variables di Vercel Dashboard:
-#   - GEMINI_API_KEY
 #   - SUPABASE_URL
 #   - SUPABASE_ANON_KEY
 
@@ -9,16 +8,9 @@ import os
 import json
 from datetime import datetime
 from flask import Flask, request, jsonify
-from google import genai
 import requests
 
 app = Flask(__name__)
-
-# Konfigurasi Gemini
-api_key = os.environ.get("GEMINI_API_KEY")
-gemini_client = None
-if api_key:
-    gemini_client = genai.Client(api_key=api_key)
 
 # Konfigurasi Supabase (untuk Edge Function proxy)
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
@@ -164,22 +156,9 @@ def handler():
         # Generate prompt
         prompt = generate_prompt(mapel, jenjang, topik, jenis_output, template_type, jumlah, catatan_opsional)
         
-        # Call Gemini (via direct API or Supabase Edge Function)
+        # Call Gemini via Supabase Edge Function
         gemini_model = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
-        
-        if gemini_client:
-            # Direct API call (development)
-            response = gemini_client.models.generate_content(
-                model=gemini_model,
-                contents=prompt,
-                config=genai.types.GenerateContentConfig(
-                    http_options=genai.types.HttpOptions(timeout=350000)
-                )
-            )
-            hasil = response.text if hasattr(response, 'text') else "Tidak ada respons dari AI"
-        else:
-            # Via Supabase Edge Function (production)
-            hasil = call_gemini_via_supabase(prompt, gemini_model, 0.7, 8192)
+        hasil = call_gemini_via_supabase(prompt, gemini_model, 0.7, 8192)
         
         return jsonify({
             'success': True,
