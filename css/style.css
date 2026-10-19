@@ -71,6 +71,15 @@ body[data-side="open"] .app-main { margin-left: var(--side-open); }
     50% { box-shadow: 0 6px 20px rgba(31,107,79,.5), 0 0 0 4px rgba(31,107,79,.2); }
   }
   .bn-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Logo pada menu: saat aktif latarnya gradient hijau terang, jadi beri drop shadow
+     agar tetap terbaca. Logo dominan terang (Jurnal, Pegawai, Mutasi, Arsip, Pengguna)
+     pakai shadow gelap; Portal berwarna gelap pakai shadow terang. */
+  .bn-item[data-active="true"] .bn-logo:not([src*="portal"]) {
+    filter: drop-shadow(0 0 2px rgba(0,0,0,.95)) drop-shadow(0 1px 1px rgba(0,0,0,.9));
+  }
+  .bn-item[data-active="true"] .bn-logo[src*="portal"] {
+    filter: drop-shadow(0 0 2px rgba(255,255,255,.95));
+  }
   .topbar { padding: 0 12px; gap: 10px; }
   .app-main main { padding-left: 10px; padding-right: 10px; overflow-x: clip; }
   #view-dashboard [data-naik] { animation-duration: .5s; }
@@ -121,6 +130,11 @@ body[data-side="open"] .app-main { margin-left: var(--side-open); }
   }
   .bn-item[data-grup][data-active="true"] svg,
   .bn-item[data-grup][aria-expanded="true"] svg { filter: drop-shadow(0 0 3px rgba(255,255,255,.8)); }
+  /* Logo grup (Pegawai, Mutasi) juga memakai latar gradient saat sheet sub-menu terbuka */
+  .bn-item[data-grup][data-active="true"] .bn-logo,
+  .bn-item[data-grup][aria-expanded="true"] .bn-logo {
+    filter: drop-shadow(0 0 2px rgba(0,0,0,.95)) drop-shadow(0 1px 1px rgba(0,0,0,.9));
+  }
   .bn-item[data-grup][data-active="true"] .bn-label,
   .bn-item[data-grup][aria-expanded="true"] .bn-label { text-shadow: 0 1px 1px rgba(0,0,0,.3); }
   /* Overlay + sheet sub-menu */
@@ -166,6 +180,9 @@ body[data-side="open"] .app-main { margin-left: var(--side-open); }
   50% { box-shadow: 0 6px 20px rgba(31,107,79,.5), 0 0 0 4px rgba(31,107,79,.2); }
 }
 .side-item svg { width: 22px; height: 22px; flex: none; }
+/* Logo gambar pada menu: kotak sama dengan ikon SVG agar teks tetap sejajar */
+.side-logo { width: 22px; height: 22px; flex: none; object-fit: contain; }
+.bn-logo { width: 20px; height: 20px; flex: none; object-fit: contain; }
 
 .side-label { opacity: 0; transition: opacity .15s; }
 body[data-side="open"] .side-label { opacity: 1; transition-delay: .1s; }
