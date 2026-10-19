@@ -1,5 +1,5 @@
 // Deploy: supabase functions deploy generate-modul
-// Secrets: supabase secrets set GEMINI_API_KEY=... AI_MODEL=gemini-2.5-flash
+// Secrets: supabase secrets set GEMINI_API_KEY=... AI_MODEL=gemini-3.8-flash
 // Edge Function untuk generate modul/RPP - dipanggil oleh Python di Render / Vercel
 
 declare const Deno: any;
