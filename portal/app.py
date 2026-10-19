@@ -58,8 +58,9 @@ def set_frame_options(response):
         "img-src 'self' data: blob: https://*.supabase.co; "
         "connect-src 'self' https://*.supabase.co; "
         "object-src 'none'; base-uri 'self'; "
-        "frame-ancestors 'self' http://localhost:62807 http://127.0.0.1:62807 "
-        "https://admin-sdn-sukamahi-03.vercel.app; form-action 'self'"
+        "frame-ancestors 'self' http://localhost:3000 http://127.0.0.1:3000 "
+        "https://admin-sdn-sukamahi-03.vercel.app "
+        "https://admin-sdn-sukamahi-03-bdlh.vercel.app; form-action 'self'"
     )
     return response
 
