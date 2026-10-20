@@ -675,7 +675,7 @@ async function ambilFoto() {
   const tinggiHeader = Math.max(ukuranJam, (barisHari.length + barisTanggal.length) * jarak);
   const alamatTampil = alamat ? 'Alamat: ' + alamat : 'Alamat tidak tersedia';
   const lokasiTampil = lokasi
-    ? `GPS: ${lokasi.latitude.toFixed(6)}, ${lokasi.longitude.toFixed(6)} · akurasi ±${Math.round(lokasi.accuracy)} m`
+    ? `GPS: ${lokasi.latitude.toFixed(6)}, ${lokasi.longitude.toFixed(6)}`
     : 'GPS: tidak tersedia';
   const barisAlamat = bungkusTeks(alamatTampil, lebarTeks, 3);
   ctx.font = `500 ${ukuranZona}px sans-serif`;
