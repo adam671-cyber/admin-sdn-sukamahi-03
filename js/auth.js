@@ -46,6 +46,34 @@ function formatMenit(detik) {
 
 sb.auth.getSession().then(({ data }) => { if (data.session) location.href = 'index.html'; });
 
+// Toggle lihat/sembunyikan kata sandi di halaman login.
+(() => {
+  const input = document.getElementById('password');
+  const tombol = document.getElementById('toggle-password');
+  if (!input || !tombol) return;
+  const ikonLihat = document.getElementById('ikon-lihat');
+  const ikonSembunyi = document.getElementById('ikon-sembunyi');
+  const atur = (tampil) => {
+    input.type = tampil ? 'text' : 'password';
+    tombol.setAttribute('aria-pressed', String(tampil));
+    const label = tampil ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi';
+    tombol.setAttribute('aria-label', label);
+    tombol.title = label;
+    if (ikonLihat) ikonLihat.classList.toggle('hidden', tampil);
+    if (ikonSembunyi) ikonSembunyi.classList.toggle('hidden', !tampil);
+  };
+  tombol.addEventListener('click', () => {
+    const tampil = input.type === 'password';
+    atur(tampil);
+    if (tampil) {
+      const akhir = input.value.length;
+      input.setSelectionRange(akhir, akhir);
+    }
+    input.focus();
+  });
+  atur(false);
+})();
+
 document.getElementById('form-login').addEventListener('submit', async (e) => {
   e.preventDefault();
   const err = document.getElementById('error');

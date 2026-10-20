@@ -44,14 +44,28 @@
       <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-hijau/10 flex items-center justify-center">
         <img src="src/logo-1.png" alt="Logo SDN Sukamahi 03" class="w-14 h-14 object-contain">
       </div>
-      <h1 class="text-2xl font-extrabold text-hijau">SDN Sukamahi 03</h1>
+      <h1 class="text-2xl font-extrabold text-hijau">SDN SUKAMAHI 03</h1>
       <p class="text-sm text-ink/70 mt-1">Portal Administrasi Sekolah, Cikarang Pusat</p>
     </div>
     <form id="form-login" class="space-y-4">
-      <label class="block text-sm font-semibold">Email
+      <label class="block text-sm font-semibold">Username / Email
         <input id="email" type="email" required autocomplete="username" class="mt-1 w-full rounded-lg border border-ink/20 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-hijau/50 focus:border-transparent"></label>
-      <label class="block text-sm font-semibold">Kata sandi
-        <input id="password" type="password" required autocomplete="current-password" class="mt-1 w-full rounded-lg border border-ink/20 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-hijau/50 focus:border-transparent"></label>
+      <label class="block text-sm font-semibold">Sandi
+        <span class="relative mt-1 block">
+          <input id="password" type="password" required autocomplete="current-password" class="w-full rounded-lg border border-ink/20 px-3 py-2 pr-11 focus:outline-none focus:ring-2 focus:ring-hijau/50 focus:border-transparent">
+          <button type="button" id="toggle-password" aria-label="Tampilkan kata sandi" aria-pressed="false" title="Tampilkan kata sandi"
+            class="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-lg text-ink/50 hover:text-hijau focus:outline-none focus-visible:ring-2 focus-visible:ring-hijau/50">
+            <svg id="ikon-lihat" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+            <svg id="ikon-sembunyi" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="hidden">
+              <path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19M6.6 6.6A18.5 18.5 0 0 0 2 11s3.5 7 10 7a9.1 9.1 0 0 0 4.13-.98" />
+              <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+              <path d="m2 2 20 20" />
+            </svg>
+          </button>
+        </span></label>
       <p id="error" class="text-sm text-red-700 hidden" role="alert"></p>
       <button class="w-full rounded-lg bg-hijau text-white font-semibold py-2.5 hover:bg-ink transition-colors duration-200">Masuk</button>
     </form>

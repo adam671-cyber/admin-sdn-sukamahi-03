@@ -8,12 +8,79 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
-        :root { --primary-gradient: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); }
-        body { background-color: #f3f6f9; font-family: 'Segoe UI', sans-serif; }
+        :root {
+            --primary-gradient: linear-gradient(135deg, #5b87c4 0%, #7ba6d9 100%);
+            --theme: #2f8a63;
+            --theme-soft: #f4fbf7;
+            --theme-soft-hover: #e8f6ee;
+            --theme-ring: rgba(47, 138, 99, 0.14);
+        }
+        body { background-color: #f6f9fd; font-family: 'Segoe UI', sans-serif; }
         .header-banner { background: var(--primary-gradient); color: white; border-radius: 0 0 25px 25px; padding: 30px 20px; }
-        .card-custom { border: none; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); background: #ffffff; }
-        .section-title-alt { border-left: 5px solid #20c997; padding-left: 10px; font-weight: 700; color: #0f5132; }
+        .card-custom { border: none; border-radius: 14px; box-shadow: 0 6px 18px rgba(74, 123, 181, 0.08); background: #ffffff; }
+        .section-title-alt { border-left: 4px solid var(--theme); padding-left: 9px; font-weight: 700; color: #246a4b; font-size: 1.02rem; }
         #output-content { background: #ffffff; padding: 30px; border-radius: 12px; border: 1px solid #e9ecef; line-height: 1.7; }
+
+        /* Navigasi menu halaman (segmented) */
+        .nav-segmented {
+            display: flex; gap: 4px; background: #ffffff;
+            border: 1px solid #e9f1fb; border-radius: 12px; padding: 4px;
+            box-shadow: 0 2px 8px rgba(74, 123, 181, 0.06);
+        }
+        .nav-segmented .nav-link {
+            flex: 1; text-align: center; border-radius: 9px;
+            padding: 7px 10px; font-size: 0.84rem; font-weight: 700;
+            color: #6f8a7d; transition: background-color 0.15s ease, color 0.15s ease;
+        }
+        .nav-segmented .nav-link:hover { background: var(--theme-soft); color: var(--theme); }
+        .nav-segmented .nav-link.active { background: linear-gradient(135deg, #e9f7f0 0%, #d8efe4 100%); color: #246a4b; }
+
+        /* ---- Gaya form bersama (sama seperti dashboard, tema hijau) ---- */
+        .form-section { background: #fcfeff; border: 1px solid #e9f1fb; border-radius: 11px; padding: 0.7rem 0.85rem 0.05rem; }
+        .form-section + .form-section { margin-top: 0.7rem; }
+        .form-section-title {
+            display: flex; align-items: center; gap: 0.45rem;
+            margin: 0 0 0.6rem; font-size: 0.7rem; font-weight: 800;
+            letter-spacing: 0.06em; text-transform: uppercase; color: var(--theme);
+        }
+        .form-section-title::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--theme-ring), transparent); }
+        .form-section .form-label { font-size: 0.82rem; margin-bottom: 0.15rem; }
+        .form-section .row { --bs-gutter-x: 0.7rem; --bs-gutter-y: 0.5rem; }
+        .form-section .mb-3 { margin-bottom: 0.6rem !important; }
+
+        .field-teks, .field-pilih {
+            border: 1.5px solid #d4e2f2; border-radius: 9px;
+            padding: 0.4rem 0.65rem; font-size: 0.9rem; line-height: 1.4;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+        }
+        .field-teks { background-color: #ffffff; color: #24384f; font-weight: 400; }
+        .field-teks::placeholder { color: #a8b8c8; font-weight: 400; }
+        .field-teks:hover { border-color: #b9cfe6; }
+        .field-teks:focus {
+            background-color: #ffffff; border-color: var(--theme);
+            box-shadow: 0 0 0 3px var(--theme-ring); outline: none;
+        }
+
+        .field-pilih {
+            background-color: var(--theme-soft); color: #294057;
+            font-weight: 600; cursor: pointer; padding-right: 2.2rem;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%232f8a63'%3E%3Cpath d='M8 11.5 2.8 6.3l1.1-1.1L8 9.3l4.1-4.1 1.1 1.1z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 0.7rem center; background-size: 13px 13px;
+            appearance: none; -webkit-appearance: none;
+        }
+        .field-pilih:hover { background-color: var(--theme-soft-hover); border-color: #b9cfe6; }
+        .field-pilih:focus { border-color: var(--theme); box-shadow: 0 0 0 3px var(--theme-ring); outline: none; }
+
+        .field-hint { display: flex; gap: 0.3rem; margin: 0.25rem 0 0; font-size: 0.74rem; line-height: 1.3; color: #7c8fa5; }
+        .field-hint i { margin-top: 0.13rem; font-size: 0.66rem; color: var(--theme); opacity: 0.7; }
+
+        .btn-generate {
+            background: linear-gradient(135deg, #2f8a63 0%, #246a4b 100%);
+            border: none; color: #ffffff; border-radius: 10px;
+            letter-spacing: 0.01em; transition: filter 0.15s ease, transform 0.1s ease;
+        }
+        .btn-generate:hover { color: #ffffff; filter: brightness(1.06); }
+        .btn-generate:active { transform: scale(0.995); }
     </style>
 </head>
 <body>
@@ -21,63 +88,79 @@
 <!-- NAVBAR MODERN KHUSUS HALAMAN KURIKULUM -->
 <style>
     .navbar-custom {
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-        padding: 12px 24px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        background: #ffffff;
+        box-shadow: 0 2px 10px rgba(63, 111, 181, 0.07);
+        padding: 8px 18px;
+        border-bottom: 1px solid #e4ecf8;
     }
 
+    .brand-ikon {
+        width: 34px; height: 34px; flex: 0 0 auto;
+        background: linear-gradient(135deg, #e8f7f0 0%, #d4efe2 100%);
+        color: #2f8a63; border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+    }
+
+    .brand-teks { color: #22405f; font-size: 0.98rem; font-weight: 800; line-height: 1.15; }
+    .brand-sub { display: block; font-size: 0.7rem; font-weight: 600; color: #7d93ab; }
+
     .nav-link-custom {
-        color: #94a3b8;
-        font-weight: 500;
-        padding: 8px 16px;
-        border-radius: 8px;
-        transition: all 0.3s ease;
+        color: #4d6580;
+        font-size: 0.85rem;
+        font-weight: 600;
+        padding: 6px 12px;
+        border-radius: 10px;
+        transition: all 0.2s ease;
         text-decoration: none;
+        white-space: nowrap;
     }
 
     .nav-link-custom:hover {
-        color: #ffffff;
-        background: rgba(255,255,255,0.08);
+        color: #2f8a63;
+        background: #f1f9f5;
     }
+
+    .chip-user {
+        display: flex; align-items: center; gap: 6px;
+        background: #f7fcfa; border: 1px solid #e2f2ea;
+        color: #3d5a7a; font-size: 0.8rem; font-weight: 700;
+        padding: 5px 11px; border-radius: 999px;
+    }
+    .chip-user i { color: #6fb99a; }
 </style>
 
-<nav class="navbar navbar-expand-lg navbar-custom mb-4">
-    <div class="container-fluid">
+<nav class="navbar navbar-expand-lg navbar-custom mb-3">
+    <div class="container-fluid px-0">
         <!-- Brand Logo & Nama Sekolah -->
-        <a class="navbar-brand d-flex align-items-center text-white fw-bold" href="/dashboard">
-            <div class="bg-primary bg-gradient p-2 rounded-3 me-2 d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
-                <i class="fa-solid fa-graduation-cap text-white fs-5"></i>
-            </div>
-            <span>SDN Sukamahi 03 <span class="fw-light text-muted fs-6">| AI Portal</span></span>
+        <a class="navbar-brand d-flex align-items-center gap-2 m-0 p-0" href="/dashboard">
+            <span class="brand-ikon"><i class="fa-solid fa-graduation-cap"></i></span>
+            <span class="brand-teks">SDN Sukamahi 03<span class="brand-sub">Portal Pembelajaran</span></span>
         </a>
 
         <div class="d-flex align-items-center gap-2 ms-auto">
             <!-- Navigasi Riwayat -->
             <a href="/riwayat" class="nav-link-custom d-flex align-items-center gap-2">
                 <i class="fa-solid fa-clock-rotate-left"></i>
-                <span>Riwayat RPP & Kurikulum</span>
+                <span>Riwayat Modul & Kurikulum</span>
             </a>
 
-            <div class="vr bg-secondary mx-2 opacity-50" style="height: 25px;"></div>
-
             <!-- Identitas User -->
-            <div class="text-white me-2 d-none d-md-block fs-7">
-                <i class="fa-regular fa-user-circle me-1 text-info"></i> {{ session.get('username', 'Guru') }}
-            </div>
+            <span class="chip-user d-none d-md-flex">
+                <i class="fa-regular fa-user-circle"></i> {{ session.get('username', 'Guru') }}
+            </span>
         </div>
     </div>
 </nav>
 
     <div class="container pb-5">
         <!-- Navigasi Menu Terpisah -->
-        <div class="row mb-4">
+        <div class="row mb-3">
             <div class="col-12">
-                <div class="nav nav-pills nav-justified bg-white p-2 rounded-3 shadow-sm">
-                    <a class="nav-link text-dark fw-bold" href="{{ url_for('dashboard') }}">
+                <div class="nav-segmented">
+                    <a class="nav-link" href="{{ url_for('dashboard') }}">
                         <i class="fa-solid fa-pen-ruler me-2"></i>1. Penilaian & Modul Harian
                     </a>
-                    <a class="nav-link active bg-success fw-bold" href="{{ url_for('kurikulum') }}">
+                    <a class="nav-link active" href="{{ url_for('kurikulum') }}">
                         <i class="fa-solid fa-folder-tree me-2"></i>2. Dokumen Kurikulum Khusus
                     </a>
                 </div>
@@ -86,46 +169,60 @@
 
         <div class="row justify-content-center">
             <div class="col-lg-10">
-                <div class="card card-custom p-4 mb-5">
+                <div class="card card-custom p-3 mb-4 border-top border-3" style="border-top-color: var(--theme) !important;">
                     <form method="POST">
-                        <h5 class="section-title-alt mb-4"><i class="fa-solid fa-folder-tree me-2"></i>Perangkat Perencanaan Kurikulum</h5>
-                        
-                        <div class="row g-3 mb-4">
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Mata Pelajaran</label>
-                                <input type="text" name="mapel" class="form-control" placeholder="Contoh: IPAS" required value="{{ form_data.mapel or '' }}">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Jenjang Kelas</label>
-                                <select name="jenjang" class="form-select" required>
-                                    <option value="SD Kelas 1" {% if form_data.jenjang == 'SD Kelas 1' %}selected{% endif %}>Kelas 1 SD</option>
-                                    <option value="SD Kelas 2" {% if form_data.jenjang == 'SD Kelas 2' %}selected{% endif %}>Kelas 2 SD</option>
-                                    <option value="SD Kelas 3" {% if form_data.jenjang == 'SD Kelas 3' %}selected{% endif %}>Kelas 3 SD</option>
-                                    <option value="SD Kelas 4" {% if form_data.jenjang == 'SD Kelas 4' %}selected{% endif %}>Kelas 4 SD</option>
-                                    <option value="SD Kelas 5" {% if form_data.jenjang == 'SD Kelas 5' %}selected{% endif %}>Kelas 5 SD</option>
-                                    <option value="SD Kelas 6" {% if form_data.jenjang == 'SD Kelas 6' %}selected{% endif %}>Kelas 6 SD</option>
-                                </select>
-                            </div>
-                            <div class="col-md-12">
-                                <label class="form-label fw-bold">Topik / Cakupan Materi Utama</label>
-                                <input type="text" name="topik" class="form-control" placeholder="Contoh: Semester 1 Ganjil Lengkap" required value="{{ form_data.topik or '' }}">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Pilih Dokumen Kurikulum</label>
-                                <select name="jenis_output_kurikulum" class="form-select border-success" required>
-                                    <option value="Silabus Pembelajaran Lengkap" {% if form_data.jenis_output_kurikulum == 'Silabus Pembelajaran Lengkap' %}selected{% endif %}>📜 Silabus Pembelajaran</option>
-                                    <option value="Capaian Pembelajaran (CP)" {% if form_data.jenis_output_kurikulum == 'Capaian Pembelajaran (CP)' %}selected{% endif %}>🎯 Capaian Pembelajaran (CP)</option>
-                                    <option value="Alur Tujuan Pembelajaran (ATP)" {% if form_data.jenis_output_kurikulum == 'Alur Tujuan Pembelajaran (ATP)' %}selected{% endif %}>🗺️ Alur Tujuan Pembelajaran (ATP)</option>
-                                    <option value="Kalender Pendidikan & Program Semester" {% if form_data.jenis_output_kurikulum == 'Kalender Pendidikan & Program Semester' %}selected{% endif %}>🗓️ Kalender Pendidikan / Prota-Promes</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Jumlah Poin / Alokasi Minggu</label>
-                                <input type="number" name="jumlah" class="form-control" value="{{ form_data.jumlah or '16' }}" min="1" max="50" required>
+                        <h5 class="section-title-alt mb-3"><i class="fa-solid fa-folder-tree me-2"></i>Perangkat Perencanaan Kurikulum</h5>
+
+                        <div class="form-section">
+                            <p class="form-section-title"><i class="fa-solid fa-book-open"></i>Materi</p>
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold" for="k-mapel">Mata Pelajaran</label>
+                                    <input type="text" id="k-mapel" name="mapel" class="form-control field-teks" required value="{{ form_data.mapel or '' }}">
+                                    <p class="field-hint"><i class="fa-solid fa-circle-info"></i>Tulis nama mata pelajaran saja, tanpa kelas.</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold" for="k-jenjang">Jenjang Kelas</label>
+                                    <select id="k-jenjang" name="jenjang" class="form-select field-pilih" required>
+                                        <option value="SD Kelas 1" {% if form_data.jenjang == 'SD Kelas 1' %}selected{% endif %}>Kelas 1 SD</option>
+                                        <option value="SD Kelas 2" {% if form_data.jenjang == 'SD Kelas 2' %}selected{% endif %}>Kelas 2 SD</option>
+                                        <option value="SD Kelas 3" {% if form_data.jenjang == 'SD Kelas 3' %}selected{% endif %}>Kelas 3 SD</option>
+                                        <option value="SD Kelas 4" {% if form_data.jenjang == 'SD Kelas 4' %}selected{% endif %}>Kelas 4 SD</option>
+                                        <option value="SD Kelas 5" {% if form_data.jenjang == 'SD Kelas 5' %}selected{% endif %}>Kelas 5 SD</option>
+                                        <option value="SD Kelas 6" {% if form_data.jenjang == 'SD Kelas 6' %}selected{% endif %}>Kelas 6 SD</option>
+                                    </select>
+                                    <p class="field-hint"><i class="fa-solid fa-circle-info"></i>Pilih satu dari daftar.</p>
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label fw-bold" for="k-topik">Topik / Cakupan Materi Utama</label>
+                                    <input type="text" id="k-topik" name="topik" class="form-control field-teks" required value="{{ form_data.topik or '' }}">
+                                    <p class="field-hint"><i class="fa-solid fa-circle-info"></i>Cakupan materi yang akan disusun dokumennya.</p>
+                                </div>
                             </div>
                         </div>
 
-                        <button type="submit" id="btn-submit-kurikulum" class="btn btn-primary w-100 py-3 fw-bold">
+                        <div class="form-section">
+                            <p class="form-section-title"><i class="fa-solid fa-file-export"></i>Format Hasil</p>
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold" for="k-jenis">Pilih Dokumen Kurikulum</label>
+                                    <select id="k-jenis" name="jenis_output_kurikulum" class="form-select field-pilih" required>
+                                        <option value="Silabus Pembelajaran Lengkap" {% if form_data.jenis_output_kurikulum == 'Silabus Pembelajaran Lengkap' %}selected{% endif %}>📜 Silabus Pembelajaran</option>
+                                        <option value="Capaian Pembelajaran (CP)" {% if form_data.jenis_output_kurikulum == 'Capaian Pembelajaran (CP)' %}selected{% endif %}>🎯 Capaian Pembelajaran (CP)</option>
+                                        <option value="Alur Tujuan Pembelajaran (ATP)" {% if form_data.jenis_output_kurikulum == 'Alur Tujuan Pembelajaran (ATP)' %}selected{% endif %}>🗺️ Alur Tujuan Pembelajaran (ATP)</option>
+                                        <option value="Kalender Pendidikan & Program Semester" {% if form_data.jenis_output_kurikulum == 'Kalender Pendidikan & Program Semester' %}selected{% endif %}>🗓️ Kalender Pendidikan / Prota-Promes</option>
+                                    </select>
+                                    <p class="field-hint"><i class="fa-solid fa-circle-info"></i>Menentukan jenis dokumen yang dibuat.</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold" for="k-jumlah">Jumlah Poin / Alokasi Minggu</label>
+                                    <input type="number" id="k-jumlah" name="jumlah" class="form-control field-teks" value="{{ form_data.jumlah or '16' }}" min="1" max="50" required>
+                                    <p class="field-hint"><i class="fa-solid fa-circle-info"></i>1–50 poin atau minggu.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="btn-submit-kurikulum" class="btn btn-generate w-100 py-2 fw-bold">
                             <i class="fa-solid fa-wand-magic-sparkles me-2"></i>Generate Dokumen Kurikulum AI
                         </button>
                     </form>
@@ -141,10 +238,10 @@
                 </script>
 
                 {% if hasil %}
-                <div class="card card-custom p-4 mb-5 border-top border-4 border-success">
+                <div class="card card-custom p-3 mb-4 border-top border-3" style="border-top-color: var(--theme) !important;">
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h4 class="fw-bold text-success m-0"><i class="fa-solid fa-file-circle-check me-2"></i>Hasil Output Dokumen Kurikulum AI</h4>
-                        <button onclick="downloadWordDoc()" class="btn btn-success fw-bold px-3 py-2 shadow-sm">
+                        <h4 class="fw-bold m-0" style="color: #246a4b;"><i class="fa-solid fa-file-circle-check me-2"></i>Hasil Output Dokumen Kurikulum AI</h4>
+                        <button onclick="downloadWordDoc()" class="btn btn-generate fw-bold px-3 py-2 shadow-sm">
                             <i class="fa-solid fa-file-word me-2"></i>Simpan ke Word (.doc)
                         </button>
                     </div>
@@ -152,8 +249,9 @@
                     <div id="output-content"></div>
                 </div>
 
+                <script type="application/json" id="k-data-hasil">{{ hasil|tojson }}</script>
                 <script>
-                    document.getElementById('output-content').innerHTML = marked.parse({{ hasil|tojson }});
+                    document.getElementById('output-content').innerHTML = marked.parse(JSON.parse(document.getElementById('k-data-hasil').textContent));
                     function downloadWordDoc() {
                         var header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'></head><body>";
                         var footer = "</body></html>";
