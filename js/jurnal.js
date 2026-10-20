@@ -322,11 +322,35 @@ function blokKegiatan(i, item) {
         <label class="block text-sm font-semibold">Waktu
           <input name="waktu_${i}" placeholder="cth: 07.00 - 08.00" value="${esc(it.waktu || '')}" class="mt-1 w-full rounded-lg border border-ink/20 px-3 py-2 text-sm font-normal"></label>
         <label class="block text-sm font-semibold">Kegiatan
-          <textarea name="kegiatan_${i}" rows="2" placeholder="Tulis kegiatan yang dilakukan" style="text-align:justify" class="mt-1 w-full rounded-lg border border-ink/20 px-3 py-2 text-sm font-normal">${esc(it.kegiatan || '')}</textarea></label>
-        <label class="block text-sm font-semibold">Bukti dukung (foto dari galeri/file, JPG/PNG — otomatis dikompres)
-          <input name="bukti_file_${i}" type="file" accept=".jpg,.jpeg,.png" class="mt-1 w-full text-sm" title="Pilih foto dari galeri atau file perangkat"></label>
-        <button type="button" class="w-full rounded-lg border border-ink/20 text-sm font-semibold px-3 py-1.5 hover:bg-kertas"
-          data-buka-kamera="${i}">📷 Ambil dari kamera</button>
+          <textarea name="kegiatan_${i}" rows="7" placeholder="Tulis kegiatan yang dilakukan" style="text-align:justify;min-height:11rem" class="mt-1 h-44 w-full resize-y rounded-lg border border-ink/20 px-3 py-2 text-sm font-normal leading-relaxed">${esc(it.kegiatan || '')}</textarea></label>
+        <div>
+          <p class="text-sm font-semibold">Bukti dukung <span class="font-normal text-ink/60">(JPG/PNG, otomatis dikompres)</span></p>
+          <input name="bukti_file_${i}" id="bukti_file_${i}" type="file" accept=".jpg,.jpeg,.png" class="hidden">
+          <div class="mt-1 flex items-stretch gap-2">
+            <button type="button" data-pilih-file="${i}"
+              class="flex-1 rounded-lg border border-sky-300 bg-gradient-to-b from-sky-200 to-white px-3 py-2 text-xs font-bold text-sky-900 shadow-sm transition hover:from-sky-300 hover:to-sky-50 active:scale-[.98]">
+              Pilih File
+            </button>
+            <button type="button" data-buka-kamera="${i}"
+              class="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-emerald-300 bg-gradient-to-b from-emerald-200 to-white px-3 py-2 text-xs font-bold text-emerald-900 shadow-sm transition hover:from-emerald-300 hover:to-emerald-50 active:scale-[.98]">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="size-4 shrink-0">
+                <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+                <circle cx="12" cy="13" r="3.5" />
+              </svg>
+              Ambil dari Kamera
+            </button>
+          </div>
+          <div class="mt-2 hidden items-center gap-2 rounded-lg border border-ink/15 bg-kertas/50 p-2"
+            data-bukti-preview="${i}" data-existing="${esc(it.bukti_nama || '')}">
+            <img alt="Pratinjau bukti dukung" class="size-14 shrink-0 rounded-md border border-ink/15 bg-white object-cover">
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-xs font-semibold" data-bukti-nama="${i}"></p>
+              <p class="text-[11px] text-ink/60" data-bukti-ukuran="${i}"></p>
+            </div>
+            <button type="button" data-hapus-bukti="${i}"
+              class="hidden shrink-0 rounded-md border border-ink/20 px-2 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-50">Hapus</button>
+          </div>
+        </div>
       </div>
     </fieldset>`;
 }
@@ -427,18 +451,33 @@ function bukaModalKamera() {
           <p class="text-center text-[11px] text-ink/60">Koordinat GPS dikirim ke Geocode Maps untuk mencari alamat. Nama jalan ditampilkan jika tersedia pada data peta.</p>
           <p id="kamera-status" class="text-center text-xs text-ink/70" role="status" aria-live="polite">Menyiapkan kamera dan lokasi...</p>
         </div>
-        <div class="flex flex-wrap items-center justify-end gap-2 px-4 py-3 border-t border-ink/10">
-          <button type="button" id="btn-ganti-kamera" class="hidden rounded-lg border border-ink/20 px-4 py-2 text-xs font-semibold hover:bg-kertas">Ganti kamera</button>
-          <button type="button" id="btn-batal-kamera" class="rounded-lg border border-ink/20 px-4 py-2 text-xs font-semibold hover:bg-kertas">Batal</button>
-          <button type="button" id="btn-ambil-foto" disabled class="rounded-lg bg-hijau text-white px-4 py-2 text-xs font-bold hover:bg-ink disabled:opacity-50">Ambil</button>
-          <button type="button" id="btn-gunakan-foto" class="hidden rounded-lg bg-hijau px-4 py-2 text-xs font-bold hover:bg-ink">Gunakan</button>
-          <button type="button" id="btn-ulangi-foto" class="hidden rounded-lg border border-ink/20 px-4 py-2 text-xs font-semibold hover:bg-kertas">Ulangi</button>
+        <div id="kamera-kontrol-live" class="flex items-center gap-2 border-t border-ink/10 px-4 py-3">
+          <div class="flex flex-1 justify-start">
+            <button type="button" id="btn-ganti-kamera" class="hidden rounded-lg border border-ink/20 px-3 py-2 text-xs font-semibold hover:bg-kertas">Ganti kamera</button>
+          </div>
+          <button type="button" id="btn-ambil-foto" disabled title="Ambil foto" aria-label="Ambil foto"
+            class="flex size-16 shrink-0 items-center justify-center rounded-full bg-hijau text-white shadow-lg ring-4 ring-hijau/25 transition hover:bg-emerald-700 active:scale-95 disabled:opacity-50 disabled:shadow-none">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="size-7">
+              <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+              <circle cx="12" cy="13" r="3.5" />
+            </svg>
+          </button>
+          <div class="flex flex-1 justify-end">
+            <button type="button" id="btn-batal-kamera" class="rounded-lg border border-ink/20 px-3 py-2 text-xs font-semibold hover:bg-kertas">Batal</button>
+          </div>
+        </div>
+        <div id="kamera-kontrol-preview" class="hidden items-center justify-center gap-2 border-t border-ink/10 px-4 py-3">
+          <button type="button" id="btn-batal-kamera-2" class="rounded-lg border border-ink/20 px-3 py-2 text-xs font-semibold hover:bg-kertas">Batal</button>
+          <button type="button" id="btn-gunakan-foto"
+            class="rounded-lg bg-hijau px-6 py-3 text-sm font-bold text-white shadow-md transition hover:bg-emerald-700 active:scale-95">Gunakan</button>
+          <button type="button" id="btn-ulangi-foto" class="rounded-lg border border-ink/20 px-3 py-2 text-xs font-semibold hover:bg-kertas">Ulangi</button>
         </div>
       </div>`;
     document.body.appendChild(d);
     modalKamera = d;
     $('#btn-tutup-kamera').onclick = () => tutupModalKamera();
     $('#btn-batal-kamera').onclick = () => tutupModalKamera();
+    $('#btn-batal-kamera-2').onclick = () => tutupModalKamera();
     $('#btn-ganti-kamera').onclick = gantiKamera;
     $('#btn-ambil-foto').onclick = ambilFoto;
     $('#btn-gunakan-foto').onclick = pakaiFotoKamera;
@@ -557,9 +596,9 @@ function tampilkanModeLive() {
   preview.classList.add('hidden');
   document.getElementById('kamera-view').classList.remove('hidden');
   document.getElementById('btn-ganti-kamera').classList.remove('hidden');
-  document.getElementById('btn-ambil-foto').classList.remove('hidden');
-  document.getElementById('btn-gunakan-foto').classList.add('hidden');
-  document.getElementById('btn-ulangi-foto').classList.add('hidden');
+  document.getElementById('kamera-kontrol-live').classList.remove('hidden');
+  document.getElementById('kamera-kontrol-preview').classList.add('hidden');
+  document.getElementById('kamera-kontrol-preview').classList.remove('flex');
 }
 
 async function ambilFoto() {
@@ -681,9 +720,9 @@ function tampilkanPreviewFoto() {
   preview.classList.remove('hidden');
   document.getElementById('kamera-view').classList.add('hidden');
   document.getElementById('btn-ganti-kamera').classList.add('hidden');
-  document.getElementById('btn-ambil-foto').classList.add('hidden');
-  document.getElementById('btn-gunakan-foto').classList.remove('hidden');
-  document.getElementById('btn-ulangi-foto').classList.remove('hidden');
+  document.getElementById('kamera-kontrol-live').classList.add('hidden');
+  document.getElementById('kamera-kontrol-preview').classList.remove('hidden');
+  document.getElementById('kamera-kontrol-preview').classList.add('flex');
 }
 
 function pakaiFotoKamera() {
@@ -695,21 +734,93 @@ function pakaiFotoKamera() {
   dt.items.add(kameraAktif.preview);
   input.files = dt.files;
   tutupModalKamera();
+  jTampilkanBuktiForm(k.idx);
+}
+
+/* ---------- Pratinjau bukti dukung di form jurnal ---------- */
+let jBuktiUrl = new Map(); // idx -> objectURL agar bisa di-revoke
+const jUkuranFile = (b) => (b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB');
+
+function jBersihkanBuktiUrl() {
+  jBuktiUrl.forEach((url) => URL.revokeObjectURL(url));
+  jBuktiUrl.clear();
+}
+
+function jAturTombolHapus(idx, tampil) {
+  const btn = document.querySelector(`[data-hapus-bukti="${idx}"]`);
+  if (btn) btn.classList.toggle('hidden', !tampil);
+}
+
+function jTampilkanBuktiForm(idx) {
+  const input = document.getElementById('bukti_file_' + idx);
+  const wrap = document.querySelector(`[data-bukti-preview="${idx}"]`);
+  if (!wrap) return;
+  const img = wrap.querySelector('img');
+  const nama = wrap.querySelector(`[data-bukti-nama="${idx}"]`);
+  const ukur = wrap.querySelector(`[data-bukti-ukuran="${idx}"]`);
+
+  if (jBuktiUrl.has(idx)) { URL.revokeObjectURL(jBuktiUrl.get(idx)); jBuktiUrl.delete(idx); }
+
+  const file = input && input.files && input.files[0];
+  if (!file) {
+    wrap.classList.add('hidden');
+    wrap.classList.remove('flex');
+    img.removeAttribute('src');
+    jAturTombolHapus(idx, false);
+    return;
+  }
+  const url = URL.createObjectURL(file);
+  jBuktiUrl.set(idx, url);
+  img.src = url;
+  img.classList.remove('hidden');
+  nama.textContent = file.name;
+  ukur.textContent = jUkuranFile(file.size) + ' · siap diunggah';
+  wrap.classList.remove('hidden');
+  wrap.classList.add('flex');
+  jAturTombolHapus(idx, true);
+}
+
+function jHapusBuktiForm(idx) {
+  const input = document.getElementById('bukti_file_' + idx);
+  if (input) input.value = '';
+  if (jBuktiUrl.has(idx)) { URL.revokeObjectURL(jBuktiUrl.get(idx)); jBuktiUrl.delete(idx); }
+  // Mode edit: bila sudah ada bukti tersimpan, kembalikan tampilan nama berkas lama
+  const wrap = document.querySelector(`[data-bukti-preview="${idx}"]`);
+  if (wrap && (wrap.dataset.existing || '')) { jBuktiLamaForm(idx); return; }
+  if (wrap) {
+    wrap.classList.add('hidden');
+    wrap.classList.remove('flex');
+    const img = wrap.querySelector('img');
+    if (img) img.removeAttribute('src');
+  }
+  jAturTombolHapus(idx, false);
+}
+
+/* Tampilkan nama berkas lama saat mengedit jurnal yang sudah punya bukti */
+function jBuktiLamaForm(idx) {
+  const wrap = document.querySelector(`[data-bukti-preview="${idx}"]`);
+  if (!wrap) return;
+  const existing = wrap.dataset.existing || '';
+  if (!existing) return;
+  const img = wrap.querySelector('img');
+  if (img) img.classList.add('hidden');
+  wrap.querySelector(`[data-bukti-nama="${idx}"]`).textContent = existing;
+  wrap.querySelector(`[data-bukti-ukuran="${idx}"]`).textContent = 'Bukti tersimpan · pilih file baru untuk mengganti';
+  wrap.classList.remove('hidden');
+  wrap.classList.add('flex');
+  // Belum ada file baru, jadi tidak ada yang bisa dihapus dari sini
+  jAturTombolHapus(idx, false);
 }
 
 function ulangiFotoKamera() {
   const k = kameraAktif;
   if (!k) return;
-  const preview = document.getElementById('kamera-preview');
-  preview.classList.add('hidden');
-  document.getElementById('btn-ambil-foto').classList.remove('hidden');
-  document.getElementById('btn-gunakan-foto').classList.add('hidden');
-  document.getElementById('btn-ulangi-foto').classList.add('hidden');
   bukaKamera(k.idx);
 }
 
 function bukaFormJurnal(item) {
   jurnalEditId = item ? item.id : null;
+  jBersihkanBuktiUrl();
   const isi = $('#md-isi'), aksi = $('#md-actions');
   $('#md-sub').textContent = tglID(new Date(jTglVal() + 'T00:00:00'));
   if (item) {
@@ -728,7 +839,13 @@ function bukaFormJurnal(item) {
     <button id="j-batal" class="rounded-lg border border-ink/20 px-4 py-2 text-xs font-semibold hover:bg-kertas">Batal</button>
     <button id="j-simpan" class="rounded-lg bg-hijau text-white px-5 py-2 text-xs font-bold hover:bg-ink">Simpan</button>`;
   $('#modal-mutasi-detail').classList.remove('hidden');
-  $('#j-batal').onclick = () => $('#modal-mutasi-detail').classList.add('hidden');
+  // Mode edit: tampilkan nama bukti yang sudah tersimpan. Form baru: pastikan tombol hapus tersembunyi.
+  const jumlahBlok = item ? 1 : 3 - jurnalDaftar.length;
+  for (let b = 0; b < jumlahBlok; b++) {
+    if (item) jBuktiLamaForm(b);
+    else jAturTombolHapus(b, false);
+  }
+  $('#j-batal').onclick = () => { jBersihkanBuktiUrl(); $('#modal-mutasi-detail').classList.add('hidden'); };
   $('#j-simpan').onclick = simpanJurnal;
 }
 
@@ -1011,6 +1128,17 @@ $('#j-tambah').onclick = () => bukaFormJurnal(null);
 document.addEventListener('click', (e) => {
   const b = e.target.closest('[data-buka-kamera]');
   if (b) bukaKamera(Number(b.dataset.bukaKamera));
+  const pilih = e.target.closest('[data-pilih-file]');
+  if (pilih) {
+    const f = document.getElementById('bukti_file_' + pilih.dataset.pilihFile);
+    if (f) f.click();
+  }
+  const hapus = e.target.closest('[data-hapus-bukti]');
+  if (hapus) jHapusBuktiForm(hapus.dataset.hapusBukti);
+});
+document.addEventListener('change', (e) => {
+  const id = e.target.id || '';
+  if (id.startsWith('bukti_file_')) jTampilkanBuktiForm(id.slice('bukti_file_'.length));
 });
 const jAksiBtn = $('#j-aksi'), jAksiMenu = $('#j-aksi-menu');
 if (jAksiBtn && jAksiMenu) {
