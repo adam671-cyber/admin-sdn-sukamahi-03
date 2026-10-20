@@ -449,7 +449,7 @@ function bukaModalKamera() {
           <video id="kamera-view" muted playsinline class="max-h-[55vh] max-w-full w-auto rounded-lg bg-black"></video>
           <div id="kamera-preview" class="hidden"></div>
           <p class="text-center text-[11px] text-ink/60">Koordinat GPS dikirim ke Geocode Maps untuk mencari alamat. Nama jalan ditampilkan jika tersedia pada data peta.</p>
-          <p id="kamera-status" class="text-center text-xs text-ink/70" role="status" aria-live="polite">Menyiapkan kamera dan lokasi...</p>
+          <p id="kamera-status" class="whitespace-pre-line text-center text-xs text-ink/70" role="status" aria-live="polite">Menyiapkan kamera dan lokasi...</p>
         </div>
         <div id="kamera-kontrol-live" class="flex items-center gap-2 border-t border-ink/10 px-4 py-3">
           <div class="flex flex-1 justify-start">
@@ -560,24 +560,25 @@ async function bukaKamera(idx) {
     .catch((error) => {
       if (kameraAktif && kameraAktif.dibukaPada === dibukaPada) {
         kameraAktif.lokasi = null;
-        jSetStatusKamera(error.message + ' Foto tetap dapat diambil; watermark akan mencantumkan lokasi tidak tersedia.', 'error');
+        jSetStatusKamera(`${error.message}\nFoto tetap dapat diambil; watermark mencantumkan lokasi tidak tersedia.`, 'error');
         $('#btn-ambil-foto').disabled = false;
       }
       return null;
     });
   const alamatPromise = lokasiPromise.then(async (lokasi) => {
     if (!lokasi) return null;
+    const koordinat = `${lokasi.latitude.toFixed(6)}, ${lokasi.longitude.toFixed(6)} · akurasi ±${Math.round(lokasi.accuracy)} m`;
     try {
       const alamat = await jAlamatDariLokasi(lokasi);
       if (kameraAktif && kameraAktif.dibukaPada === dibukaPada) {
         kameraAktif.alamat = alamat;
-        jSetStatusKamera(`Alamat terdekat: ${alamat} (akurasi GPS ±${Math.round(lokasi.accuracy)} m)`, 'success');
+        jSetStatusKamera(`Alamat terdekat: ${alamat}\nGPS: ${koordinat}`, 'success');
       }
       return alamat;
     } catch (error) {
       if (kameraAktif && kameraAktif.dibukaPada === dibukaPada) {
         kameraAktif.alamatError = error.message || String(error);
-        jSetStatusKamera('Alamat tidak tersedia: ' + kameraAktif.alamatError + '. Foto tetap dapat diambil dengan koordinat GPS.', 'error');
+        jSetStatusKamera(`Alamat tidak tersedia: ${kameraAktif.alamatError}\nGPS: ${koordinat}\nFoto tetap dapat diambil.`, 'error');
       }
       return null;
     }
@@ -629,7 +630,8 @@ async function ambilFoto() {
   const padding = Math.max(8, Math.round(canvas.width * 0.018));
   const ukuranJam = Math.max(20, Math.min(72, Math.round(canvas.width * 0.085)));
   const ukuranTeks = Math.max(12, Math.min(26, Math.round(canvas.width * 0.028)));
-  const jarak = Math.round(ukuranTeks * 1.25);
+  const ukuranZona = Math.max(10, Math.round(ukuranTeks * 0.78));
+  const jarak = Math.round(ukuranTeks * 1.3);
   const lebarPanel = Math.round(canvas.width * 0.78);
   const panelX = Math.round(canvas.width * 0.015);
   const lebarTeks = lebarPanel - padding * 2;
@@ -658,27 +660,33 @@ async function ambilFoto() {
     }
     return baris;
   };
-  ctx.font = `${ukuranJam}px sans-serif`;
-  const lebarJam = ctx.measureText(jam).width;
+  const lebarJam = (() => {
+    ctx.font = `700 ${ukuranJam}px sans-serif`;
+    return ctx.measureText(jam).width;
+  })();
   const waktuX = panelX + padding;
   const garisX = Math.min(panelX + lebarPanel - padding * 2, waktuX + lebarJam + padding * 0.7);
   const infoX = garisX + padding * 0.8;
   const infoLebar = panelX + lebarPanel - infoX - padding;
-  ctx.font = `${ukuranTeks}px sans-serif`;
-  const barisTanggal = bungkusTeks(tanggal, infoLebar, 3);
-  const barisKeterangan = [...barisTanggal, hari];
-  const tinggiHeader = Math.max(ukuranJam, jarak * barisKeterangan.length);
-  const alamatTampil = alamat
-    ? 'Alamat: ' + alamat
-    : lokasi
-      ? `GPS: ${lokasi.latitude.toFixed(6)}, ${lokasi.longitude.toFixed(6)} (akurasi ±${Math.round(lokasi.accuracy)} m)`
-      : 'Alamat tidak tersedia';
+  ctx.font = `600 ${ukuranTeks}px sans-serif`;
+  const barisHari = bungkusTeks(hari, infoLebar, 1);
+  ctx.font = `500 ${ukuranTeks}px sans-serif`;
+  const barisTanggal = bungkusTeks(tanggal, infoLebar, 2);
+  const tinggiHeader = Math.max(ukuranJam, (barisHari.length + barisTanggal.length) * jarak);
+  const alamatTampil = alamat ? 'Alamat: ' + alamat : 'Alamat tidak tersedia';
+  const lokasiTampil = lokasi
+    ? `GPS: ${lokasi.latitude.toFixed(6)}, ${lokasi.longitude.toFixed(6)} · akurasi ±${Math.round(lokasi.accuracy)} m`
+    : 'GPS: tidak tersedia';
   const barisAlamat = bungkusTeks(alamatTampil, lebarTeks, 3);
+  ctx.font = `500 ${ukuranZona}px sans-serif`;
+  const barisLokasi = bungkusTeks(lokasiTampil, lebarTeks, 2);
+  const jarakZona = Math.round(ukuranZona * 1.4);
   const unitKerja = 'Unit Kerja: SDN SUKAMAHI 03';
   const tinggiUnit = jarak + Math.round(padding * 0.6);
   const jarakBagian = Math.round(padding * 0.65);
   const tinggiPanel = padding + tinggiHeader + padding
-    + barisAlamat.length * jarak + jarakBagian + tinggiUnit + padding;
+    + barisAlamat.length * jarak + barisLokasi.length * jarakZona
+    + jarakBagian + tinggiUnit + padding;
   const panelY = Math.max(0, canvas.height - tinggiPanel - padding);
   const gradasiLatar = ctx.createLinearGradient(panelX, panelY, panelX + lebarPanel, panelY);
   gradasiLatar.addColorStop(0, 'rgba(0, 0, 0, 0.58)');
@@ -688,19 +696,30 @@ async function ambilFoto() {
   ctx.fillRect(panelX, panelY, lebarPanel, tinggiPanel);
   ctx.textBaseline = 'top';
   const headerY = panelY + padding;
-  ctx.font = `${ukuranJam}px sans-serif`;
+  ctx.font = `700 ${ukuranJam}px sans-serif`;
   ctx.fillStyle = '#fff';
   ctx.fillText(jam, waktuX, headerY + (tinggiHeader - ukuranJam) / 2);
   ctx.fillStyle = '#fbbf24';
   ctx.fillRect(garisX, headerY, Math.max(3, Math.round(ukuranTeks * 0.12)), tinggiHeader);
-  ctx.font = `${ukuranTeks}px sans-serif`;
+  const teksKeteranganY = headerY + (tinggiHeader - (barisHari.length + barisTanggal.length) * jarak) / 2;
+  ctx.font = `600 ${ukuranTeks}px sans-serif`;
   ctx.fillStyle = '#fff';
-  barisKeterangan.forEach((teks, i) => ctx.fillText(teks, infoX, headerY + i * jarak));
+  barisHari.forEach((teks, i) => ctx.fillText(teks, infoX, teksKeteranganY + i * jarak));
+  ctx.font = `500 ${ukuranTeks}px sans-serif`;
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+  barisTanggal.forEach((teks, i) => ctx.fillText(teks, infoX, teksKeteranganY + (barisHari.length + i) * jarak));
   const alamatY = headerY + tinggiHeader + padding;
+  ctx.font = `500 ${ukuranTeks}px sans-serif`;
+  ctx.fillStyle = '#fff';
   barisAlamat.forEach((teks, i) => ctx.fillText(teks, waktuX, alamatY + i * jarak));
-  const unitY = alamatY + barisAlamat.length * jarak + jarakBagian;
+  const lokasiY = alamatY + barisAlamat.length * jarak;
+  ctx.font = `500 ${ukuranZona}px sans-serif`;
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.82)';
+  barisLokasi.forEach((teks, i) => ctx.fillText(teks, waktuX, lokasiY + i * jarakZona));
+  const unitY = lokasiY + barisLokasi.length * jarakZona + jarakBagian;
   ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
   ctx.fillRect(panelX + padding / 2, unitY, lebarPanel - padding, tinggiUnit);
+  ctx.font = `600 ${ukuranTeks}px sans-serif`;
   ctx.fillStyle = '#fff';
   ctx.fillText(unitKerja, waktuX, unitY + Math.round(padding * 0.3));
   const blob = await jKanvasKeBlobMaks(canvas, J_BUKTI_MAX_BYTES, 0.85);
