@@ -1,7 +1,7 @@
 // Deploy: supabase functions deploy generate-modul
 // Secrets: supabase secrets set GEMINI_API_KEY=... AI_MODEL=gemini-3.8-flash
 //          supabase secrets set PORTAL_SECRET=<sama dengan env PORTAL_SECRET di Flask>
-// Edge Function untuk generate modul/RPP - dipanggil oleh Python di Render / Vercel
+// Edge Function untuk generate modul/RPP - dipanggil oleh Python Flask (Vercel)
 // Autentikasi: menerima (1) JWT user Supabase yang valid, atau (2) header
 // X-Portal-Key yang cocok dengan secret PORTAL_SECRET (skenario Flask server-to-server).
 
@@ -16,7 +16,6 @@ const ORIGIN_DIIZINKAN = [
   'http://127.0.0.1:5000',
   'https://admin-sdn-sukamahi-03.vercel.app',
   'https://admin-sdn-sukamahi-03-bdlh.vercel.app',
-  'https://portal-sdn-sukamahi.onrender.com',
 ];
 
 function cors(req: Request): Record<string, string> {

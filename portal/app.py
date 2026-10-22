@@ -21,7 +21,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # ==========================================
-# 1. PENETAPAN DIREKTORI DASAR (Render / Lokal / PyInstaller lama)
+# 1. PENETAPAN DIREKTORI DASAR (Vercel / Lokal / PyInstaller lama)
 # ==========================================
 if getattr(sys, 'frozen', False):
     base_dir = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
@@ -714,7 +714,7 @@ def healthz():
 
 
 if __name__ == "__main__":
-    # Mode desktop/lokal: Render memakai gunicorn, blok ini hanya untuk jalan lokal.
-    if os.getenv("RENDER") != "true":
-        port = int(os.getenv("PORT", "5000"))
-        app.run(host='127.0.0.1', port=port, debug=False)
+    # Blok ini hanya untuk pengembangan lokal (python app.py).
+    # Di Vercel, aplikasi dijalankan oleh runtime Python Vercel — blok ini tidak dieksekusi.
+    port = int(os.getenv("PORT", "5000"))
+    app.run(host='127.0.0.1', port=port, debug=False)
