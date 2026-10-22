@@ -233,8 +233,15 @@
 
             <!-- Identitas User Logged In -->
             <span class="chip-user d-none d-md-flex">
-                <i class="fa-regular fa-user-circle"></i> {{ session.get('username', 'Guru') }}
+                <i class="fa-regular fa-user-circle"></i> {{ sesi.nama or sesi.email or 'Guru' }}
             </span>
+
+            <form action="/logout" method="POST" class="d-inline">
+                <input type="hidden" name="csrf" value="{{ sesi.csrf }}">
+                <button type="submit" class="btn btn-outline-light btn-sm fw-bold">
+                    <i class="fa-solid fa-arrow-right-from-bracket me-1"></i> Keluar
+                </button>
+            </form>
         </div>
     </div>
 </nav>
@@ -258,6 +265,7 @@
         <div class="col-lg-10">
             <div class="card card-custom p-3 mb-4 border-top border-3" style="border-top-color: var(--theme) !important;">
                 <form method="POST">
+                    <input type="hidden" name="csrf" value="{{ sesi.csrf }}">
                     <h5 class="section-title mb-3 fw-bold">
                         <i class="fa-solid fa-list-check me-2"></i>Informasi Pembelajaran & Penilaian Harian
                     </h5>

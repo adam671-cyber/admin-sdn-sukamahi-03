@@ -1,10 +1,12 @@
 // Deploy: supabase functions deploy generate-modul
 // Secrets: supabase secrets set GEMINI_API_KEY=... AI_MODEL=gemini-3.8-flash
+//          supabase secrets set PORTAL_SECRET=<sama dengan env PORTAL_SECRET di Flask>
 // Edge Function untuk generate modul/RPP - dipanggil oleh Python di Render / Vercel
+// Autentikasi: menerima (1) JWT user Supabase yang valid, atau (2) header
+// X-Portal-Key yang cocok dengan secret PORTAL_SECRET (skenario Flask server-to-server).
 
-declare const Deno: any;
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
-// Domain yang boleh memanggil function ini
 const ORIGIN_DIIZINKAN = [
   'http://localhost:5173',
   'http://localhost:3000',
@@ -19,13 +21,45 @@ const ORIGIN_DIIZINKAN = [
 
 function cors(req: Request): Record<string, string> {
   const origin = req.headers.get('Origin') ?? '';
-  const izinkan = ORIGIN_DIIZINKAN.includes(origin) ? origin : (origin || '*');
+  if (!ORIGIN_DIIZINKAN.includes(origin)) {
+    // Asal tak dikenal: JANGAN ikutkan Access-Control-Allow-Origin apa pun.
+    return { 'Vary': 'Origin' };
+  }
   return {
-    'Access-Control-Allow-Origin': izinkan,
-    'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info, x-supabase-api-version',
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info, x-supabase-api-version, x-portal-key',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Vary': 'Origin',
   };
+}
+
+function cocokRahasia(a: string, b: string): boolean {
+  // Perbandingan constant-time agar tahan timing attack
+  if (a.length !== b.length) return false;
+  let selisih = 0;
+  for (let i = 0; i < a.length; i++) selisih |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return selisih === 0;
+}
+
+async function terautorisasi(req: Request): Promise<boolean> {
+  const bearer = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+  // Jalur 1: secret bersama dari Flask (server-to-server)
+  const portalSecret = Deno.env.get('PORTAL_SECRET') ?? '';
+  if (portalSecret) {
+    const dikirim = req.headers.get('X-Portal-Key') ?? '';
+    if (cocokRahasia(dikirim, portalSecret)) return true;
+  }
+  // Jalur 2: JWT user login Supabase (pemanggil dari aplikasi admin)
+  if (bearer) {
+    const sbAuth = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: `Bearer ${bearer}` } } },
+    );
+    const { data: { user } } = await sbAuth.auth.getUser();
+    if (user) return true;
+  }
+  return false;
 }
 
 Deno.serve(async (req: Request) => {
@@ -34,6 +68,11 @@ Deno.serve(async (req: Request) => {
 
   if (req.method !== 'POST') {
     return Response.json({ error: 'Metode tidak didukung. Gunakan POST.' }, { status: 405, headers });
+  }
+
+  // Gerbang autentikasi — tanpa ini fungsi bisa dipakai siapa pun dengan anon key.
+  if (!(await terautorisasi(req))) {
+    return Response.json({ error: 'Belum login. Kirim JWT user atau header X-Portal-Key yang sah.' }, { status: 401, headers });
   }
 
   try {

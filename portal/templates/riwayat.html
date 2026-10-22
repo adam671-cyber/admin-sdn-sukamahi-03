@@ -61,8 +61,15 @@
                 <div class="vr bg-secondary mx-1 opacity-50" style="height: 25px;"></div>
 
                 <div class="text-white me-2 d-none d-md-block fs-7">
-                    <i class="fa-regular fa-user-circle me-1 text-info"></i> {{ session.get('username', 'Guru') }}
+                    <i class="fa-regular fa-user-circle me-1 text-info"></i> {{ sesi.nama or sesi.email or 'Guru' }}
                 </div>
+
+                <form action="/logout" method="POST" class="d-inline">
+                    <input type="hidden" name="csrf" value="{{ sesi.csrf }}">
+                    <button type="submit" class="btn btn-outline-light btn-sm fw-bold">
+                        <i class="fa-solid fa-arrow-right-from-bracket me-1"></i> Keluar
+                    </button>
+                </form>
             </div>
         </div>
     </nav>
@@ -148,8 +155,9 @@
                                                     <button type="button" class="btn btn-primary btn-sm flex-grow-1 fw-bold" data-bs-toggle="modal" data-bs-target="#modalRPP-{{ item.id }}">
                                                         <i class="fa-solid fa-eye me-1"></i> Lihat Dokumen
                                                     </button>
-                                                    {% if session.get('role') == 'admin' %}
+                                                    {% if sesi.role == 'admin' %}
                                                     <form action="/hapus_riwayat/{{ item.id }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus dokumen ini?');">
+                                                        <input type="hidden" name="csrf" value="{{ sesi.csrf }}">
                                                         <button type="submit" class="btn btn-outline-danger btn-sm fw-bold" title="Hapus Riwayat">
                                                             <i class="fa-solid fa-trash"></i>
                                                         </button>

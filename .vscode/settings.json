@@ -1,0 +1,8 @@
+{
+  "deno.enable": true,
+  "deno.enablePaths": ["supabase/functions"],
+  // VS Code tidak menemukan deno.exe lewat PATH -> tunjuk lokasi secara eksplisit
+  "deno.path": "C:\\Users\\asus\\.deno\\bin\\deno.exe",
+  "deno.lint": true,
+  "editor.formatOnSave": false
+}
