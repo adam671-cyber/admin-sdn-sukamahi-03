@@ -7,6 +7,8 @@ supabase/.temp/
 
 # Firebase service account key — JANGAN COMMIT!
 serviceAccountKey.json
+*firebase-adminsdk*.json
+*.pem
 
 # Output Vercel CLI lokal
 .vercel/
