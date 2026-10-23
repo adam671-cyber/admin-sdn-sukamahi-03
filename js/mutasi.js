@@ -959,7 +959,7 @@ function openPrintWindow(html, title) {
     <style>
       @page {
         size: 215mm 330mm; /* Standar F4 / Folio */
-        margin: 15mm 20mm 15mm 25mm; /* atas kanan bawah kiri (kiri lebih lebar utk penjilidan) */
+        margin: 0; /* margin 0 = Chrome tidak menggambar header/footer (tanggal, judul, about:blank) */
       }
       @media print {
         html, body {
@@ -968,6 +968,7 @@ function openPrintWindow(html, title) {
           padding: 0;
         }
         .page-container {
+          padding: 15mm 20mm 15mm 25mm; /* atas kanan bawah kiri (kiri lebih lebar utk penjilidan) */
           page-break-after: avoid;
           page-break-inside: avoid;
         }
