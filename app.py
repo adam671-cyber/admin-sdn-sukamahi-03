@@ -143,299 +143,13 @@ if not firebase_admin._apps:
 # Atribut Partitioned (CHIPS) agar kuki tetap sampai di dalam iframe admin
 # pada Chrome/Edge/Firefox. Safari/iOS tidak mendukung CHIPS → halaman login
 # menampilkan tombol "Buka di tab baru" sebagai jalan keluar.
-ASAL_ADMIN_DIIZINKAN = [
-    "https://admin-sdn-sukamahi-03.vercel.app",
-    "https://admin-sdn-sukamahi-03-bdlh.vercel.app",
-    "http://localhost:62807",
-    "http://127.0.0.1:62807",
-    "http://localhost:5173",
-    "http://localhost:3000",
-]
-UMUR_SESI = 8 * 3600      # masa berlaku sesi portal: 8 jam
-UMUR_TOKEN_SSO = 120      # token penukaran ?st= hanya 2 menit
-ROLE_PORTAL_OK = ("admin", "pegawai", "guru", "kepsek")
-
-
-def _ttd_hmac(data):
-    return hmac.new(app.secret_key.encode(), data.encode(), hashlib.sha256).hexdigest()
-
-
-def buat_token_portal(payload):
-    body = base64.urlsafe_b64encode(
-        json.dumps(payload, separators=(",", ":")).encode()
-    ).decode().rstrip("=")
-    return body + "." + _ttd_hmac(body)
-
-
-def baca_token_portal(token):
-    if not token or "." not in token:
-        return None
-    body, tanda = token.rsplit(".", 1)
-    if not hmac.compare_digest(_ttd_hmac(body), tanda):
-        return None
-    try:
-        payload = json.loads(base64.urlsafe_b64decode(body + "===").decode())
-    except Exception:
-        return None
-    if payload.get("exp", 0) < int(time.time()):
-        return None
-    return payload
-
-
-def verifikasi_jwt_supabase(jwt):
-    """Verifikasi JWT user ke Supabase Auth (server-to-server)."""
-    if not jwt or not SUPABASE_URL or not SUPABASE_ANON_KEY:
-        return None
-    try:
-        resp = requests.get(
-            f"{SUPABASE_URL}/auth/v1/user",
-            headers={"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {jwt}"},
-            timeout=10,
-        )
-        if resp.ok:
-            return resp.json()
-        print(f"SSO: JWT ditolak Supabase (HTTP {resp.status_code})")
-    except Exception as err_auth:
-        print(f"SSO: gagal verifikasi JWT: {err_auth}")
-    return None
-
-
-def periksa_akun_portal(uid, email, jwt):
-    """Cek akses portal lewat profiles: is_active + role. Hasil: (nama, role, error)."""
-    if not SUPABASE_URL or not SUPABASE_ANON_KEY:
-        print("SSO: SUPABASE_URL/SUPABASE_ANON_KEY belum diisi env.")
-        return None, None, "Akses portal belum tersedia. Hubungi admin sekolah."
-    header_user = {"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {jwt}"}
-    try:
-        resp = requests.get(
-            f"{SUPABASE_URL}/rest/v1/profiles?id=eq.{uid}&select=nama,role,is_active",
-            headers=header_user, timeout=10,
-        )
-        if not resp.ok or not resp.json():
-            print(f"SSO: profil {email} tidak ditemukan/terbaca (HTTP {resp.status_code}).")
-            return None, None, "Akses portal ditolak. Hubungi admin sekolah untuk mendaftarkan akunmu."
-        profil = resp.json()[0]
-        if not profil.get("is_active"):
-            print(f"SSO: profil {email} belum aktif.")
-            return None, None, "Akses portal ditolak. Minta admin sekolah mengaktifkan akunmu."
-        role = profil.get("role") or "guru"
-        if role not in ROLE_PORTAL_OK:
-            print(f"SSO: role '{role}' tidak diizinkan di portal.")
-            return None, None, "Akses portal ditolak. Minta admin sekolah mendaftarkan rolemu."
-        return (profil.get("nama") or email), role, None
-    except Exception as err_pro:
-        print(f"SSO: gagal memuat profil {email}: {err_pro}")
-        return None, None, "Akses portal ditolak karena gangguan teknis. Coba beberapa saat lagi."
-
-def sesi_portal_baru(data_sso):
-    """Payload sesi portal penuh (8 jam) dengan token CSRF di dalamnya."""
-    return {
-        "uid": data_sso["uid"],
-        "email": data_sso.get("email", ""),
-        "nama": data_sso.get("nama", ""),
-        "role": data_sso.get("role", "guru"),
-        "csrf": secrets.token_hex(16),
-        "exp": int(time.time()) + UMUR_SESI,
-    }
-
-
-def tetapkan_kuki_sesi(resp, payload_sesi):
-    token = buat_token_portal(payload_sesi)
-    resp.headers.add(
-        "Set-Cookie",
-        f"portal_sesi={token}; Path=/; Secure; HttpOnly; SameSite=None; "
-        f"Partitioned; Max-Age={UMUR_SESI}",
-    )
-    return resp
-
-
-def muat_sesi():
-    """Sesi aktif: dari cookie, atau dari token penukaran ?st= (SSO)."""
-    if "sesi" in g:
-        return g.sesi
-    token_st = request.args.get("st")
-    if token_st:
-        data = baca_token_portal(token_st)
-        if data and data.get("sso"):
-            sesi = sesi_portal_baru(data)
-            g.sesi = sesi
-            g.sesi_baru = sesi   # dipasang sebagai kuki lewat after_request
-            return sesi
-        return None
-    sesi = baca_token_portal(request.cookies.get("portal_sesi"))
-    if sesi:
-        g.sesi = sesi
-    return sesi
-
-
-def perlu_login(view):
-    @wraps(view)
-    def dilindungi(*args, **kwargs):
-        if muat_sesi() is None:
-            return redirect(url_for("login", sesi_boyong=1))
-        return view(*args, **kwargs)
-    return dilindungi
-
-
-def perlu_csrf(view):
-    @wraps(view)
-    def diperiksa(*args, **kwargs):
-        if request.method != "POST":
-            return view(*args, **kwargs)
-        sesi = g.get("sesi") or {}
-        token_form = request.form.get("csrf", "")
-        if not token_form or not hmac.compare_digest(token_form, sesi.get("csrf", "")):
-            return Response(
-                "Token CSRF tidak valid. Muat ulang halaman sebelum mengirim form.",
-                status=400,
-                mimetype="text/plain",
-            )
-        return view(*args, **kwargs)
-    return diperiksa
-
-
 @app.context_processor
 def injeksi_sesi():
-    return {"sesi": (g.get("sesi") if g else None) or {}}
+    return {"sesi": {}}
 
 
-@app.after_request
-def pasang_kuki_sesi(response):
-    sesi_baru = g.get("sesi_baru") if g else None
-    if sesi_baru is not None:
-        try:
-            response = tetapkan_kuki_sesi(response, sesi_baru)
-        except Exception as err_kuki:
-            # Jangan jatuhkan seluruh response; catat untuk log runtime
-            print(f"KUKI-DIAG: {type(err_kuki).__name__}: {err_kuki}")
-    return response
-
-
-@app.route("/kuki-info")
-def kuki_info():
-    """Diagnostik sementara: status kuki sesi + sidik jari rahasia (tanpa isi rahasia)."""
-    raw = request.cookies.get("portal_sesi", "")
-    if not raw:
-        keadaan = "tidak-ada"
-    elif baca_token_portal(raw):
-        keadaan = "sah"
-    else:
-        keadaan = "tanda-tangan-tak-lolos"
-    sidf = hashlib.sha256((app.secret_key or "").encode()).hexdigest()[:8]
-    return Response(
-        json.dumps({"kuki": keadaan, "sidf": sidf}),
-        mimetype="application/json",
-    )
-
-
-@app.route("/sso", methods=["POST", "OPTIONS"])
-def sso_handshake():
-    """Menukar JWT Supabase (dari aplikasi admin) dengan token penukaran ?st=."""
-    origin = request.headers.get("Origin", "")
-    cors = {}
-    if origin in ASAL_ADMIN_DIIZINKAN:
-        cors = {
-            "Access-Control-Allow-Origin": origin,
-            "Access-Control-Allow-Headers": "authorization, content-type",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Vary": "Origin",
-        }
-    if request.method == "OPTIONS":
-        return Response(status=204, headers=cors)
-    if origin not in ASAL_ADMIN_DIIZINKAN:
-        return Response(
-            json.dumps({"error": "Asal situs tidak diizinkan."}),
-            status=403, mimetype="application/json", headers={"Vary": "Origin"},
-        )
-    jwt = (request.headers.get("Authorization", "") or "").replace("Bearer ", "").strip()
-    user = verifikasi_jwt_supabase(jwt)
-    if not user or not user.get("id"):
-        return Response(
-            json.dumps({"error": "Sesi Supabase tidak valid. Masuk kembali di aplikasi admin."}),
-            status=401, mimetype="application/json", headers=cors,
-        )
-    nama, role, galat = periksa_akun_portal(user["id"], user.get("email", ""), jwt)
-    if galat:
-        return Response(
-            json.dumps({"error": galat}),
-            status=403, mimetype="application/json", headers=cors,
-        )
-    token = buat_token_portal({
-        "sso": True,
-        "uid": user["id"],
-        "email": user.get("email", ""),
-        "nama": nama,
-        "role": role,
-        "exp": int(time.time()) + UMUR_TOKEN_SSO,
-    })
-    return Response(json.dumps({"st": token}), mimetype="application/json", headers=cors)
-
-
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    galat = None
-    if muat_sesi():
-        return redirect(url_for("dashboard"))
-    if request.method == "POST":
-        email = (request.form.get("email") or "").strip()
-        sandi = request.form.get("password") or ""
-        data_auth = None
-        try:
-            resp_auth = requests.post(
-                f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
-                headers={"apikey": SUPABASE_ANON_KEY, "Content-Type": "application/json"},
-                json={"email": email, "password": sandi},
-                timeout=15,
-            )
-            data_auth = resp_auth.json() if resp_auth.ok else None
-        except Exception as err_login:
-            print(f"LOGIN: gagal menghubungi layanan login: {err_login}")
-            galat = "Login portal gagal karena gangguan teknis. Coba beberapa saat lagi."
-        if data_auth and data_auth.get("access_token"):
-            jwt = data_auth.get("access_token", "")
-            user = data_auth.get("user", {}) or {}
-            nama, role, galat_profil = periksa_akun_portal(
-                user.get("id", ""), user.get("email", email), jwt
-            )
-            if galat_profil:
-                galat = galat_profil
-            else:
-                sesi = {
-                    "uid": user.get("id", ""),
-                    "email": user.get("email", email),
-                    "nama": nama,
-                    "role": role,
-                    "csrf": secrets.token_hex(16),
-                    "exp": int(time.time()) + UMUR_SESI,
-                }
-                g.sesi = sesi
-                g.sesi_baru = sesi
-                return redirect(url_for("dashboard"))
-        elif not galat:
-            galat = "Email atau kata sandi tidak sesuai."
-    return render_template("login.html", galat=galat, galat_boyong=request.args.get("sesi_boyong"))
-
-@app.route("/logout", methods=["GET", "POST"])
-def logout():
-    resp = redirect(url_for("login"))
-    resp.headers.add(
-        "Set-Cookie",
-        "portal_sesi=; Path=/; Secure; HttpOnly; SameSite=None; Partitioned; Max-Age=0",
-    )
-    resp.headers.add(
-        "Set-Cookie",
-        "portal_sesi=; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=0",
-    )
-    return resp
-
-
-# ==========================================
-# 7. ROUTE: DASHBOARD & GENERATOR RPP / SOAL
-# ==========================================
 @app.route('/', methods=['GET', 'POST'])
 @app.route('/dashboard', methods=['GET', 'POST'])
-@perlu_login
-@perlu_csrf
 def dashboard():
     hasil = None
     form_data = {}
@@ -581,8 +295,6 @@ Format Output yang Diinginkan:
 # 9. ROUTE: KURIKULUM
 # ==========================================
 @app.route('/kurikulum', methods=['GET', 'POST'])
-@perlu_login
-@perlu_csrf
 def kurikulum():
     hasil = None
     form_data = {}
@@ -663,7 +375,6 @@ def kurikulum():
 # 10. ROUTE: RIWAYAT & EKSPOR
 # ==========================================
 @app.route('/riwayat')
-@perlu_login
 def riwayat():
     riwayat_per_kelas = {}
     try:
@@ -685,8 +396,6 @@ def riwayat():
     return render_template('riwayat.html', riwayat_per_kelas=riwayat_per_kelas)
 
 @app.route('/hapus_riwayat/<id_doc>', methods=['POST'])
-@perlu_login
-@perlu_csrf
 def hapus_riwayat(id_doc):
     try:
         db_firestore = firestore.client()
@@ -696,7 +405,6 @@ def hapus_riwayat(id_doc):
     return redirect(url_for('riwayat'))
 
 @app.route('/download_word', methods=['POST'])
-@perlu_login
 def download_word():
     content = request.form.get('content', '')
     topik = request.form.get('topik', 'RPP')
