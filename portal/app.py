@@ -324,7 +324,11 @@ def injeksi_sesi():
 def pasang_kuki_sesi(response):
     sesi_baru = g.get("sesi_baru") if g else None
     if sesi_baru is not None:
-        response = tetapkan_kuki_sesi(response, sesi_baru)
+        try:
+            response = tetapkan_kuki_sesi(response, sesi_baru)
+        except Exception as err_kuki:
+            # Jangan jatuhkan seluruh response; catat untuk log runtime
+            print(f"KUKI-DIAG: {type(err_kuki).__name__}: {err_kuki}")
     return response
 
 
@@ -377,6 +381,7 @@ def login():
     if muat_sesi():
         return redirect(url_for("dashboard"))
     if request.method == "POST":
+      try:
         email = (request.form.get("email") or "").strip()
         sandi = request.form.get("password") or ""
         try:
@@ -411,6 +416,10 @@ def login():
                 return redirect(url_for("dashboard"))
         else:
             galat = "Email atau kata sandi tidak sesuai."
+      except Exception as err_diagnos:
+          # Diagnosis temporer: tampilkan penyebab running di UI pembaca, bukan 500 buntu.
+          galat = f"[Diagnostik] {type(err_diagnos).__name__}: {str(err_diagnos)[:300]}"
+          print(f"LOGIN-DIAG: {type(err_diagnos).__name__}: {err_diagnos}")
     return render_template("login.html", galat=galat)
 
 
