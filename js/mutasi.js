@@ -84,7 +84,7 @@ function kopSuratHTML() {
         </td>
       </tr>
     </table>
-    <div style="border-bottom:3px double #000;margin-bottom:10px;"></div>`;
+    <div style="height:6px;border-bottom:3px double #000;margin:6px 0 10px 0;"></div>`;
 }
 
 /* Nomor surat: bila ada garis miring ganda (nomor manual belum diisi),
