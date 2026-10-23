@@ -739,7 +739,13 @@
         const j = await r.json();
         portalFrame.src = portalAsal + '/dashboard?st=' + encodeURIComponent(j.st);
       } catch (e) {
-        tampilkanGagalPortal('Sambungan portal gagal: ' + e.message);
+        // Fallback: muat portal di iframe (login manual tetap bisa) + petunjuk penyebab
+        portalFrame.src = portalAsal + '/login';
+        const gagalSambung = /failed to fetch/i.test((e && e.message) || '');
+        const petunjuk = gagalSambung
+          ? 'Sambungan ke portal diblokir browser. Nonaktifkan sementara ekstensi pemblokir (AdBlock dll.) atau uji lewat mode penyamaran. '
+          : 'Sambungan portal gagal. ';
+        tampilkanGagalPortal(petunjuk + 'Login manual di bawah, atau ');
       }
     }
 
