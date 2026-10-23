@@ -701,65 +701,17 @@
     crossorigin="anonymous"></script>
   <script src="js/config.js"></script>
   <script>
+    // Portal: terbuka langsung di iframe (tanpa halaman login/SSO).
     const portalFrame = document.getElementById('portal-frame');
     const portalNotice = document.getElementById('portal-unconfigured');
     const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
     const portalUrl = isLocal ? 'http://127.0.0.1:5001/' : window.PORTAL_URL;
-    // Normalisasi: pakai ASAL (origin) saja, apa pun bentuk PORTAL_URL (dengan/tanpa /dashboard)
-    const portalAsal = portalUrl ? new URL(portalUrl).origin : null;
-    const sbPortal = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    let portalTerakhirBenar = 0; // penjarak SSO, agar tidak berulang tiap klik menu
-
-    function tampilkanGagalPortal(pesan) {
-      const tautan = portalAsal ? ' <a href="' + portalAsal + '/dashboard" target="_blank" rel="noopener" class="font-bold underline">Buka portal di tab baru</a>.' : '';
-      portalNotice.innerHTML = pesan + tautan;
+    if (portalUrl) {
+      portalFrame.src = new URL(portalUrl).origin + '/dashboard';
+    } else {
+      portalNotice.textContent = 'PORTAL_URL belum diatur di js/config.js.';
       portalNotice.classList.remove('hidden');
     }
-
-    async function mulaiPortal(paksa = false) {
-      if (!portalAsal) return;
-      if (!paksa && Date.now() - portalTerakhirBenar < 30000) return;
-      portalTerakhirBenar = Date.now();
-      const { data } = await sbPortal.auth.getSession();
-      if (!data.session) {
-        tampilkanGagalPortal('Masuk ke aplikasi admin terlebih dahulu untuk membuka portal.');
-        return;
-      }
-      portalNotice.classList.add('hidden');
-      try {
-        // Handshake SSO: kirim JWT Supabase → portal mengeluarkan token penukaran ?st=
-        const r = await fetch(portalAsal + '/sso', {
-          method: 'POST',
-          headers: { Authorization: 'Bearer ' + data.session.access_token },
-        });
-        if (!r.ok) {
-          const j = await r.json().catch(() => ({}));
-          throw new Error(j.error || 'SSO gagal (HTTP ' + r.status + ')');
-        }
-        const j = await r.json();
-        portalFrame.src = portalAsal + '/dashboard?st=' + encodeURIComponent(j.st);
-      } catch (e) {
-        // Fallback: muat portal di iframe (login manual tetap bisa) + petunjuk penyebab
-        portalFrame.src = portalAsal + '/login';
-        const gagalSambung = /failed to fetch/i.test((e && e.message) || '');
-        const petunjuk = gagalSambung
-          ? 'Sambungan ke portal diblokir browser. Nonaktifkan sementara ekstensi pemblokir (AdBlock dll.) atau uji lewat mode penyamaran. '
-          : 'Sambungan portal gagal. ';
-        tampilkanGagalPortal(petunjuk + 'Login manual di bawah, atau ');
-      }
-    }
-
-    const rautePortal = () => location.hash === '#portal';
-    addEventListener('hashchange', () => { if (rautePortal()) mulaiPortal(); });
-    if (rautePortal()) mulaiPortal();
-
-    // Portal meminta SSO diulang (mis. sesi kuki tersangkut, Safari/iOS)
-    addEventListener('message', (e) => {
-      try {
-        if (portalAsal && portalAsal === e.origin &&
-            e.data && e.data.tipe === 'portal-sso') mulaiPortal(true);
-      } catch (err) { /* asal tidak sah */ }
-    });
   </script>
   <script src="js/app.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
