@@ -293,7 +293,7 @@ def perlu_login(view):
     @wraps(view)
     def dilindungi(*args, **kwargs):
         if muat_sesi() is None:
-            return redirect(url_for("login"))
+            return redirect(url_for("login", sesi_boyong=1))
         return view(*args, **kwargs)
     return dilindungi
 
@@ -378,6 +378,8 @@ def sso_handshake():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     galat = None
+    if request.args.get("sesi_boyong"):
+        galat = "Peringatan diagnostik: kamu dibawa kembali ke halaman ini karena kuki sesi portal TIDAK tersimpan / tidak terbaca oleh browser."
     if muat_sesi():
         return redirect(url_for("dashboard"))
     if request.method == "POST":
@@ -421,6 +423,24 @@ def login():
           galat = f"[Diagnostik] {type(err_diagnos).__name__}: {str(err_diagnos)[:300]}"
           print(f"LOGIN-DIAG: {type(err_diagnos).__name__}: {err_diagnos}")
     return render_template("login.html", galat=galat)
+
+
+@app.route("/uji-kuki")
+def uji_kuki():
+    """[DIAGNOSTIK SEMENTARA — hapus setelah masalah selesai]"""
+    # Uji ujung-ke-ujung (end-to-end) pemasangan+ pembacaan kuki sesi pada produksi.
+    # Hanya aktif bila memuat ?rahasia= yang cocok dengan PORTAL_SECRET.
+    rahasia_env = os.getenv("PORTAL_SECRET", "")
+    if not rahasia_env or request.args.get("rahasia") != rahasia_env:
+        return Response("Tertutup.", status=404, mimetype="text/plain")
+    sesi_diagnostik = sesi_portal_baru({
+        "uid": "uji-diagnostik",
+        "email": "uji-diagnostik@temp",
+        "nama": "[UJI KUKI]",
+        "role": "admin",
+    })
+    sesi_diagnostik["exp"] = int(time.time()) + 600  # masa hidup 10 menit saja
+    return tetapkan_kuki_sesi(redirect(url_for("dashboard")), sesi_diagnostik)
 
 
 @app.route("/logout", methods=["GET", "POST"])
