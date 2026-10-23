@@ -61,7 +61,7 @@ def set_frame_options(response):
         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
         "font-src 'self' data: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
         "img-src 'self' data: blob: https://*.supabase.co; "
-        "connect-src 'self' https://*.supabase.co; "
+        "connect-src 'self' https://*.supabase.co https://cdn.jsdelivr.net; "
         "object-src 'none'; base-uri 'self'; "
         "frame-ancestors 'self' http://localhost:62807 http://127.0.0.1:62807 "
         "https://admin-sdn-sukamahi-03.vercel.app; form-action 'self'"
@@ -201,51 +201,31 @@ def verifikasi_jwt_supabase(jwt):
 
 
 def periksa_akun_portal(uid, email, jwt):
-    """Cek is_active (profiles) + keanggotaan staf. Hasil: (nama, role, error)."""
+    """Cek akses portal lewat profiles: is_active + role. Hasil: (nama, role, error)."""
     if not SUPABASE_URL or not SUPABASE_ANON_KEY:
-        return None, None, "Portal belum dikonfigurasi SUPABASE_URL/ANON_KEY."
+        print("SSO: SUPABASE_URL/SUPABASE_ANON_KEY belum diisi env.")
+        return None, None, "Akses portal belum tersedia. Hubungi admin sekolah."
     header_user = {"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {jwt}"}
-    nama, role, pesan_selain = email, "guru", None
     try:
         resp = requests.get(
             f"{SUPABASE_URL}/rest/v1/profiles?id=eq.{uid}&select=nama,role,is_active",
             headers=header_user, timeout=10,
         )
-        if resp.ok and resp.json():
-            profil = resp.json()[0]
-            nama = profil.get("nama") or email
-            role = profil.get("role") or "guru"
-            if not profil.get("is_active"):
-                return None, None, "Akun belum diaktifkan admin."
+        if not resp.ok or not resp.json():
+            print(f"SSO: profil {email} tidak ditemukan/terbaca (HTTP {resp.status_code}).")
+            return None, None, "Akses portal ditolak. Hubungi admin sekolah untuk mendaftarkan akunmu."
+        profil = resp.json()[0]
+        if not profil.get("is_active"):
+            print(f"SSO: profil {email} belum aktif.")
+            return None, None, "Akses portal ditolak. Minta admin sekolah mengaktifkan akunmu."
+        role = profil.get("role") or "guru"
         if role not in ROLE_PORTAL_OK:
-            role = "guru"
+            print(f"SSO: role '{role}' tidak diizinkan di portal.")
+            return None, None, "Akses portal ditolak. Minta admin sekolah mendaftarkan rolemu."
+        return (profil.get("nama") or email), role, None
     except Exception as err_pro:
-        print(f"SSO: gagal memuat profil: {err_pro}")
-        return None, None, "Gagal memuat profil akun."
-    # Cek tabel staf: pakai service role bila ada env, jika tidak pakai token user
-    kunci_service = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
-    header_staf = (
-        {"apikey": kunci_service, "Authorization": f"Bearer {kunci_service}"}
-        if kunci_service
-        else header_user
-    )
-    try:
-        resp = requests.get(
-            f"{SUPABASE_URL}/rest/v1/staf?user_id=eq.{uid}&select=user_id",
-            headers=header_staf, timeout=10,
-        )
-        if resp.ok:
-            if not resp.json():
-                return None, None, "Akun belum terdaftar di tabel staf."
-        else:
-            pesan_selain = "Gagal memeriksa akses staf."
-    except Exception as err_staf:
-        print(f"SSO: gagal memeriksa staf: {err_staf}")
-        pesan_selain = "Gagal memeriksa akses staf."
-    if pesan_selain:
-        return None, None, pesan_selain
-    return nama, role, None
-
+        print(f"SSO: gagal memuat profil {email}: {err_pro}")
+        return None, None, "Akses portal ditolak karena gangguan teknis. Coba beberapa saat lagi."
 
 def sesi_portal_baru(data_sso):
     """Payload sesi portal penuh (8 jam) dengan token CSRF di dalamnya."""
@@ -378,13 +358,13 @@ def sso_handshake():
 def login():
     galat = None
     if request.args.get("sesi_boyong"):
-        galat = "Peringatan diagnostik: kamu dibawa kembali ke halaman ini karena kuki sesi portal TIDAK tersimpan / tidak terbaca oleh browser."
+        galat = "Sesi tidak tersimpan di browser (kuki ditolak). Gunakan tombol \u2018Buka di tab baru\u2019."
     if muat_sesi():
         return redirect(url_for("dashboard"))
     if request.method == "POST":
-      try:
         email = (request.form.get("email") or "").strip()
         sandi = request.form.get("password") or ""
+        data_auth = None
         try:
             resp_auth = requests.post(
                 f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
@@ -392,21 +372,22 @@ def login():
                 json={"email": email, "password": sandi},
                 timeout=15,
             )
+            data_auth = resp_auth.json() if resp_auth.ok else None
         except Exception as err_login:
-            resp_auth = None
-            print(f"Login portal gagal: {err_login}")
-            galat = "Gagal menghubungi layanan login."
-        if resp_auth is not None and resp_auth.ok:
-            data_auth = resp_auth.json()
+            print(f"LOGIN: gagal menghubungi layanan login: {err_login}")
+            galat = "Login portal gagal karena gangguan teknis. Coba beberapa saat lagi."
+        if data_auth and data_auth.get("access_token"):
             jwt = data_auth.get("access_token", "")
             user = data_auth.get("user", {}) or {}
-            nama, role, galat_profil = periksa_akun_portal(user.get("id", ""), email, jwt)
+            nama, role, galat_profil = periksa_akun_portal(
+                user.get("id", ""), user.get("email", email), jwt
+            )
             if galat_profil:
                 galat = galat_profil
             else:
                 sesi = {
                     "uid": user.get("id", ""),
-                    "email": email,
+                    "email": user.get("email", email),
                     "nama": nama,
                     "role": role,
                     "csrf": secrets.token_hex(16),
@@ -415,32 +396,9 @@ def login():
                 g.sesi = sesi
                 g.sesi_baru = sesi
                 return redirect(url_for("dashboard"))
-        else:
+        elif galat is None:
             galat = "Email atau kata sandi tidak sesuai."
-      except Exception as err_diagnos:
-          # Diagnosis temporer: tampilkan penyebab running di UI pembaca, bukan 500 buntu.
-          galat = f"[Diagnostik] {type(err_diagnos).__name__}: {str(err_diagnos)[:300]}"
-          print(f"LOGIN-DIAG: {type(err_diagnos).__name__}: {err_diagnos}")
     return render_template("login.html", galat=galat)
-
-
-@app.route("/uji-kuki")
-def uji_kuki():
-    """[DIAGNOSTIK SEMENTARA — hapus setelah masalah selesai]"""
-    # Uji ujung-ke-ujung (end-to-end) pemasangan+ pembacaan kuki sesi pada produksi.
-    # Hanya aktif bila memuat ?rahasia= yang cocok dengan PORTAL_SECRET.
-    rahasia_env = os.getenv("PORTAL_SECRET", "")
-    if not rahasia_env or request.args.get("rahasia") != rahasia_env:
-        return Response("Tertutup.", status=404, mimetype="text/plain")
-    sesi_diagnostik = sesi_portal_baru({
-        "uid": "uji-diagnostik",
-        "email": "uji-diagnostik@temp",
-        "nama": "[UJI KUKI]",
-        "role": "admin",
-    })
-    sesi_diagnostik["exp"] = int(time.time()) + 600  # masa hidup 10 menit saja
-    return tetapkan_kuki_sesi(redirect(url_for("dashboard")), sesi_diagnostik)
-
 
 @app.route("/logout", methods=["GET", "POST"])
 def logout():
