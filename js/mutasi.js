@@ -92,7 +92,7 @@ function kopSuratHTML() {
    tetap 1 baris, mis. 400.3.12.11/ /SDN.SKM.03/X/2026 */
 function nomorSurat(nilai, bawaan) {
   const raw = String(nilai || bawaan || "");
-  return esc(raw.replace(/\/\//g, "/\u00a0\u00a0\u00a0/"));
+  return esc(raw.replace(/^(.+?\/)\s*\/(.+)$/, "$1\u00a0\u00a0\u00a0/$2"));
 }
 
 /* ==========================================================
@@ -744,7 +744,7 @@ function htmlSuratKeluar(d) {
 
     <table style="width:100%;margin-top:6px;">
       <tr><td style="width:55%;"></td><td>Kepala SDN Sukamahi 03,</td></tr>
-      <tr><td></td><td><br/><br/><br/></td></tr>
+      <tr><td></td><td><br/><br/><br/><br/><br/></td></tr>
       <tr><td></td><td class="bold underline">${esc(d.nama_kepsek || 'KASWIN KARTAWIJAYA, M.Pd')}</td></tr>
       <tr><td></td><td>NIP. ${esc(d.nip_kepsek || '19720506 199903 1 007')}</td></tr>
     </table>
