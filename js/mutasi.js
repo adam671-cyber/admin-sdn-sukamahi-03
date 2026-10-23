@@ -674,7 +674,7 @@ function htmlSuratMasuk(d) {
     <table style="width:100%;">
       <tr><td style="width:55%;"></td><td>Cikarang Pusat, ${esc(tanggalStr)}</td></tr>
       <tr><td></td><td>Kepala SDN Sukamahi 03,</td></tr>
-      <tr><td></td><td><br/><br/></td></tr>
+      <tr><td></td><td><br/><br/><br/></td></tr>
       <tr><td></td><td class="bold underline">${esc(d.nama_kepsek || 'KASWIN KARTAWIJAYA, M.Pd')}</td></tr>
       <tr><td></td><td>NIP. ${esc(d.nip_kepsek || '19720506 199903 1 007')}</td></tr>
     </table>`;
@@ -690,20 +690,27 @@ function htmlSuratKeluar(d) {
     ${kopSuratHTML()}
     <table style="width:100%;">
       <tr>
-        <td style="width:52%;vertical-align:top;">
-          <table>
-            <tr><td style="width:60px;">Nomor</td><td style="width:10px;">:</td><td style="white-space:nowrap;">${nomorSurat(d.no_surat, '400.3.12.1/____/SDN.SKM.03/____/____')}</td></tr>
-            <tr><td>Lampiran</td><td>:</td><td>${esc(d.lampiran || '-')}</td></tr>
-            <tr><td>Perihal</td><td>:</td><td>Surat Mutasi/Pindah Sekolah</td></tr>
-          </table>
-        </td>
-        <td style="width:46%;vertical-align:top;padding-left:12mm;">
-          <p>Cikarang Pusat, ${esc(tanggalSurat)}</p>
-          <p>Kepada Yth.</p>
-          <p>${d.sekolah_tujuan ? 'Kepala <span class="bold">' + esc(d.sekolah_tujuan) + '.</span>' : 'Kepala _______________'}</p>
-          <p>di</p>
-          <p>Tempat</p>
-        </td>
+        <td style="width:60px;">Nomor</td><td style="width:10px;">:</td>
+        <td style="white-space:nowrap;">${nomorSurat(d.no_surat, '400.3.12.1/____/SDN.SKM.03/____/____')}</td>
+        <td style="width:11mm;"></td>
+        <td style="width:44%;vertical-align:top;">Cikarang Pusat, ${esc(tanggalSurat)}</td>
+      </tr>
+      <tr>
+        <td>Lampiran</td><td>:</td><td>${esc(d.lampiran || '-')}</td>
+        <td></td><td style="vertical-align:top;">Kepada Yth.</td>
+      </tr>
+      <tr>
+        <td>Perihal</td><td>:</td><td>Surat Mutasi/Pindah Sekolah</td>
+        <td></td>
+        <td style="vertical-align:top;">${d.sekolah_tujuan ? 'Kepala <span class="bold">' + esc(d.sekolah_tujuan) + '.</span>' : 'Kepala _______________'}</td>
+      </tr>
+      <tr>
+        <td></td><td></td><td></td>
+        <td></td><td style="vertical-align:top;">di</td>
+      </tr>
+      <tr>
+        <td></td><td></td><td></td>
+        <td></td><td style="vertical-align:top;">Tempat</td>
       </tr>
     </table>
 
@@ -737,7 +744,7 @@ function htmlSuratKeluar(d) {
 
     <table style="width:100%;margin-top:6px;">
       <tr><td style="width:55%;"></td><td>Kepala SDN Sukamahi 03,</td></tr>
-      <tr><td></td><td><br/><br/></td></tr>
+      <tr><td></td><td><br/><br/><br/></td></tr>
       <tr><td></td><td class="bold underline">${esc(d.nama_kepsek || 'KASWIN KARTAWIJAYA, M.Pd')}</td></tr>
       <tr><td></td><td>NIP. ${esc(d.nip_kepsek || '19720506 199903 1 007')}</td></tr>
     </table>
@@ -758,7 +765,7 @@ function htmlSuratKeluar(d) {
     <table style="width:100%;margin-top:6px;">
       <tr><td style="width:55%;"></td><td>____________________, __________________</td></tr>
       <tr><td></td><td>Kepala Sekolah,</td></tr>
-      <tr><td></td><td><br/><br/></td></tr>
+      <tr><td></td><td><br/><br/><br/></td></tr>
       <tr><td></td><td>________________________________________</td></tr>
       <tr><td></td><td>NIP.</td></tr>
     </table>`;
