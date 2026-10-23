@@ -92,7 +92,7 @@ function kopSuratHTML() {
    tetap 1 baris, mis. 400.3.12.11/ /SDN.SKM.03/X/2026 */
 function nomorSurat(nilai, bawaan) {
   const raw = String(nilai || bawaan || "");
-  return esc(raw.replace(/^(.+?\/)\s*\/(.+)$/, "$1\u00a0\u00a0\u00a0/$2"));
+  return esc(raw.replace(/^(.+?\/)\s*\/(.+)$/, "$1\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0/$2"));
 }
 
 /* ==========================================================
@@ -599,7 +599,7 @@ xmlns="http://www.w3.org/TR/REC-html40">
 <style>
 @page Section1 {
   size: 215.9mm 330.2mm; /* F4 / Folio */
-  margin: 8mm 15mm 12mm 20mm;
+  margin: 8mm 15mm 6mm 20mm;
   mso-header-margin: 1cm;
   mso-footer-margin: 1cm;
   mso-paper-source: 0;
@@ -795,7 +795,7 @@ function openPrintWindow(html, title) {
           padding: 0;
         }
         .page-container {
-          padding: 8mm 15mm 12mm 20mm; /* atas kanan bawah kiri — hemat, isi lebih memenuhi kertas */
+          padding: 8mm 15mm 6mm 20mm; /* atas kanan bawah kiri — hemat, isi lebih memenuhi kertas */
           page-break-after: avoid;
           page-break-inside: avoid;
         }
