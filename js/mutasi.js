@@ -717,27 +717,27 @@ function htmlSuratKeluar(d) {
     <p class="justify" style="margin-top:8px;">Kepala Sekolah Dasar Negeri Sukamahi 03 Kecamatan Cikarang Pusat Kabupaten Bekasi, dengan ini memberikan izin pindah sekolah/rayon kepada:</p>
 
     <table>
-      <tr><td style="width:140px;">Nama</td><td style="width:10px;">:</td><td class="bold">${esc(d.nama_siswa || '')}</td></tr>
-      <tr><td>Tempat, Tgl. Lahir</td><td>:</td><td>${esc(d.tempat_tgl_lahir || '')}</td></tr>
-      <tr><td>Jenis Kelamin</td><td>:</td><td>${esc(d.jenis_kelamin || '')}</td></tr>
-      <tr><td>NISN</td><td>:</td><td>${esc(d.nisn || '')}</td></tr>
-      <tr><td>Kelas</td><td>:</td><td>${esc(d.kelas || '')}</td></tr>
-      <tr><td>Asal Sekolah</td><td>:</td><td>${esc(d.asal_sekolah || 'SDN SUKAMAHI 03')}</td></tr>
-      <tr><td>Alamat Sekolah</td><td>:</td><td class="justify">${esc(d.alamat_sekolah || 'Jl. Raya Sukamahi Kp. Cimahi Rt. 007/004 Ds. Sukamahi Kec. Cikarang Pusat Kab. Bekasi')}</td></tr>
+      <tr><td style="width:25px;"></td><td style="width:140px;">Nama</td><td style="width:10px;">:</td><td class="bold">${esc(d.nama_siswa || '')}</td></tr>
+      <tr><td style="width:25px;"></td><td>Tempat, Tgl. Lahir</td><td>:</td><td>${esc(d.tempat_tgl_lahir || '')}</td></tr>
+      <tr><td style="width:25px;"></td><td>Jenis Kelamin</td><td>:</td><td>${esc(d.jenis_kelamin || '')}</td></tr>
+      <tr><td style="width:25px;"></td><td>NISN</td><td>:</td><td>${esc(d.nisn || '')}</td></tr>
+      <tr><td style="width:25px;"></td><td>Kelas</td><td>:</td><td>${esc(d.kelas || '')}</td></tr>
+      <tr><td style="width:25px;"></td><td>Asal Sekolah</td><td>:</td><td>${esc(d.asal_sekolah || 'SDN SUKAMAHI 03')}</td></tr>
+      <tr><td style="width:25px;"></td><td>Alamat Sekolah</td><td>:</td><td class="justify">${esc(d.alamat_sekolah || 'Jl. Raya Sukamahi Kp. Cimahi Rt. 007/004 Ds. Sukamahi Kec. Cikarang Pusat Kab. Bekasi')}</td></tr>
     </table>
 
     <table style="margin-top:4px;">
-      <tr><td style="width:140px;">Nama Orang Tua</td><td style="width:10px;">:</td><td>Ayah : ${esc(d.nama_ayah || '_______________')}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Ibu : ${esc(d.nama_ibu || '_______________')}</td></tr>
-      <tr><td>Alamat Orang Tua</td><td>:</td><td class="justify">${esc(d.alamat_ortu || '_______________')}</td></tr>
+      <tr><td style="width:25px;"></td><td style="width:140px;">Nama Orang Tua</td><td style="width:10px;">:</td><td>Ayah : ${esc(d.nama_ayah || '_______________')}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Ibu : ${esc(d.nama_ibu || '_______________')}</td></tr>
+      <tr><td style="width:25px;"></td><td>Alamat Orang Tua</td><td>:</td><td class="justify">${esc(d.alamat_ortu || '_______________')}</td></tr>
     </table>
 
     <p class="bold" style="margin-top:8px;">Melanjutkan / Pindah ke :</p>
     <table>
-      <tr><td style="width:140px;">Nama Sekolah</td><td style="width:10px;">:</td><td class="bold">${esc(d.sekolah_tujuan || '')}</td></tr>
-      <tr><td>Kecamatan</td><td>:</td><td>${esc(d.kecamatan_tujuan || '')}</td></tr>
-      <tr><td>Kabupaten / Kota</td><td>:</td><td>${esc(d.kabupaten_tujuan || '')}</td></tr>
-      <tr><td>Provinsi</td><td>:</td><td>${esc(d.provinsi_tujuan || '')}</td></tr>
-      <tr><td>Alasan</td><td>:</td><td class="justify">${esc(d.alasan_pindah || '')}</td></tr>
+      <tr><td style="width:25px;"></td><td style="width:140px;">Nama Sekolah</td><td style="width:10px;">:</td><td class="bold">${esc(d.sekolah_tujuan || '')}</td></tr>
+      <tr><td style="width:25px;"></td><td>Kecamatan</td><td>:</td><td>${esc(d.kecamatan_tujuan || '')}</td></tr>
+      <tr><td style="width:25px;"></td><td>Kabupaten / Kota</td><td>:</td><td>${esc(d.kabupaten_tujuan || '')}</td></tr>
+      <tr><td style="width:25px;"></td><td>Provinsi</td><td>:</td><td>${esc(d.provinsi_tujuan || '')}</td></tr>
+      <tr><td style="width:25px;"></td><td>Alasan</td><td>:</td><td class="justify">${esc(d.alasan_pindah || '')}</td></tr>
     </table>
 
     <p class="justify" style="margin-top:8px;">Demikian surat ini kami buat untuk dipergunakan sebagaimana mestinya dan agar menjadi maklum adanya.</p>
