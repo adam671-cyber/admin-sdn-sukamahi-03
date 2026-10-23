@@ -357,8 +357,6 @@ def sso_handshake():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     galat = None
-    if request.args.get("sesi_boyong"):
-        galat = "Sesi tidak tersimpan di browser (kuki ditolak). Gunakan tombol \u2018Buka di tab baru\u2019."
     if muat_sesi():
         return redirect(url_for("dashboard"))
     if request.method == "POST":
@@ -396,9 +394,9 @@ def login():
                 g.sesi = sesi
                 g.sesi_baru = sesi
                 return redirect(url_for("dashboard"))
-        elif galat is None:
+        elif not galat:
             galat = "Email atau kata sandi tidak sesuai."
-    return render_template("login.html", galat=galat)
+    return render_template("login.html", galat=galat, galat_boyong=request.args.get("sesi_boyong"))
 
 @app.route("/logout", methods=["GET", "POST"])
 def logout():

@@ -51,6 +51,13 @@
         </div>
         {% endif %}
 
+        {% if galat_boyong %}
+        <div class="alert alert-secondary py-2 small">
+            <i class="fa-solid fa-circle-info me-1"></i> Sesi sebelumnya tidak tersimpan di browser.
+            Bila ini berulang di dalam aplikasi admin, gunakan tombol <em>Buka di tab baru</em>.
+        </div>
+        {% endif %}
+
         <form method="POST" novalidate>
             <div class="mb-3">
                 <label for="email" class="form-label fw-semibold small text-dark">Email</label>
