@@ -312,6 +312,23 @@ def pasang_kuki_sesi(response):
     return response
 
 
+@app.route("/kuki-info")
+def kuki_info():
+    """Diagnostik sementara: status kuki sesi + sidik jari rahasia (tanpa isi rahasia)."""
+    raw = request.cookies.get("portal_sesi", "")
+    if not raw:
+        keadaan = "tidak-ada"
+    elif baca_token_portal(raw):
+        keadaan = "sah"
+    else:
+        keadaan = "tanda-tangan-tak-lolos"
+    sidf = hashlib.sha256((app.secret_key or "").encode()).hexdigest()[:8]
+    return Response(
+        json.dumps({"kuki": keadaan, "sidf": sidf}),
+        mimetype="application/json",
+    )
+
+
 @app.route("/sso", methods=["POST", "OPTIONS"])
 def sso_handshake():
     """Menukar JWT Supabase (dari aplikasi admin) dengan token penukaran ?st=."""
