@@ -580,16 +580,13 @@ function generatePdfKeluar(d) {
    GENERATE WORD (.doc) â€” FORMAT F4 & TANPA PROMPT CONVERT
    ========================================================== */
 function downloadAsWord(html, filename) {
-  /* Word dibungkus sebagai MHT (single-file web archive) ber-ekstensi .doc:
-     - dibuka Word sebagai DOKUMEN asli (Print Layout), bukan "HTML Document";
-     - @page WordSection1 = nama yang dikenali Word -> kertas F4 (8.5" x 13");
-     - logo kop disertakan sebagai bagian berkas -> tampil tanpa internet. */
-
-  /* tautan logo absolut pada HTML cetak diganti jadi relatif (resolves ke part MHT) */
-  const logoUrl = new URL('src/logo-bekasi.png', document.baseURI).href;
-  const htmlWord = html.split(logoUrl).join('logo-bekasi.png');
-
-  const isiHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+  /* HTML biasa ber-prefix BOM — Word membukanya langsung sebagai dokumen
+     (tanpa dialog konversi/Protected View) dengan kertas F4 pada Print Layout. */
+  const fullHtml = `<html xmlns:v="urn:schemas-microsoft-com:vml"
+xmlns:o="urn:schemas-microsoft-com:office:office"
+xmlns:w="urn:schemas-microsoft-com:office:word"
+xmlns:m="http://schemas.microsoft.com/office/2004/12/omml"
+xmlns="http://www.w3.org/TR/REC-html40">
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 <title>${esc(filename)}</title>
@@ -604,15 +601,15 @@ function downloadAsWord(html, filename) {
 <![endif]-->
 <style>
 @page WordSection1 {
-  size: 8.5in 13.0in; /* F4 / Folio 215.9mm x 330.2mm */
+  size: 215.9mm 330.2mm; /* F4 / Folio */
   margin: 8mm 15mm 6mm 20mm;
   mso-header-margin: .5in;
   mso-footer-margin: .5in;
   mso-paper-source: 0;
 }
 div.WordSection1 { page: WordSection1; }
-body { font-family: 'Times New Roman', serif; font-size: 11pt; color: #000; }
-table { border-collapse: collapse; width: 100%; margin: 2px 0; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+body { font-family: 'Times New Roman', serif; font-size: 11pt; color: #000; line-height: 1.25; }
+table { border-collapse: collapse; width: 100%; margin: 2px 0; }
 td, th { padding: 1px 4px; vertical-align: top; font-size: 11pt; }
 p { margin: 2px 0; }
 tr { page-break-inside: avoid; }
@@ -623,61 +620,20 @@ tr { page-break-inside: avoid; }
 img { max-width: 75px; height: auto; }
 </style>
 </head>
-<body lang="ID" style="tab-interval:.5in">
+<body>
 <div class="WordSection1">
-${htmlWord}
+${html}
 </div>
 </body>
 </html>`;
 
-  const BATAS = '----=_NextPart_SDN_SUKAMAHI_03';
-  const bantuanB64 = (isi, tipe) => new Promise((sudah) => {
-    const fr = new FileReader();
-    fr.onload = () => sudah(String(fr.result).split(',')[1]);
-    fr.onerror = () => sudah('');
-    fr.readAsDataURL(new Blob([isi], { type: tipe }));
-  });
-
-  return (async () => {
-    let htmlB64, logoB64;
-    try {
-      [htmlB64, logoB64] = await Promise.all([
-        bantuanB64(isiHtml, 'text/html'),
-        (async () => {
-          try {
-            const jawab = await fetch(logoUrl);
-            const gambar = await jawab.blob();
-            return await new Promise((sudah) => {
-              const fr = new FileReader();
-              fr.onload = () => sudah(String(fr.result).split(',')[1]);
-              fr.onerror = () => sudah('');
-              fr.readAsDataURL(gambar);
-            });
-          } catch (e) { return ''; }
-        })(),
-      ]);
-    } catch (e) { htmlB64 = ''; logoB64 = ''; }
-
-    /* bungkus base64 ke baris <= 76 karakter (patuhi MIME) */
-    const lipat = (b64) => (String(b64 || '').replace(/[\r\n]/g, '').match(/.{1,76}/g) || []).join('\r\n');
-
-    let mht = `MIME-Version: 1.0\r\nContent-Type: multipart/related; type="text/html"; boundary="${BATAS}"\r\nX-MimeOLE: Produced By Microsoft MimeOLE\r\n\r\n`;
-    if (htmlB64) {
-      mht += `--${BATAS}\r\nContent-Location: file:///C:/sdn-sukamahi/surat.htm\r\nContent-Transfer-Encoding: base64\r\nContent-Type: text/html; charset="utf-8"\r\n\r\n${lipat(htmlB64)}\r\n\r\n`;
-    }
-    if (htmlB64 && logoB64) {
-      mht += `--${BATAS}\r\nContent-Location: file:///C:/sdn-sukamahi/logo-bekasi.png\r\nContent-Transfer-Encoding: base64\r\nContent-Type: image/png\r\n\r\n${lipat(logoB64)}\r\n\r\n`;
-    }
-    mht += `--${BATAS}--`;
-
-    const blob = new Blob([mht], { type: 'application/msword;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  })();
+  const blob = new Blob(['\ufeff' + fullHtml], { type: 'application/msword;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function htmlSuratMasuk(d) {
