@@ -69,7 +69,7 @@ const inputKolom = (f, val) => {
 function kopSuratHTML() {
   const logoSrc = (typeof LOGO_KOP !== 'undefined' && LOGO_KOP) ? LOGO_KOP : new URL('src/logo-bekasi.png', document.baseURI).href;
   return `
-    <table style="width:100%;border-bottom:3px double #000;padding-bottom:6px;margin-bottom:10px;border-collapse:collapse;">
+    <table style="width:100%;padding-bottom:6px;border-collapse:collapse;">
       <tr>
         <td style="width:80px;vertical-align:middle;text-align:center;padding-right:10px;">
           <img src="${logoSrc}" width="75" height="90" style="width:75px;height:auto;max-width:75px;display:block;margin:0 auto;" alt="Logo Kabupaten Bekasi">
@@ -83,7 +83,15 @@ function kopSuratHTML() {
           <p style="font-size:9pt;margin:0;line-height:1.2;">Kec. Cikarang Pusat Kab. Bekasi &ndash; 17530 Email: <span style="color:#0044cc;text-decoration:underline;">sdnsukamahi03@gmail.com</span></p>
         </td>
       </tr>
-    </table>`;
+    </table>
+    <div style="border-bottom:3px double #000;margin-bottom:10px;"></div>`;
+}
+
+/* Nomor surat: bila ada garis miring ganda (nomor manual belum diisi),
+   sisipkan satu spasi sebagai ruang penulisan, mis. 400.3.12.11/ /SDN.SKM.03/X/2026 */
+function nomorSurat(nilai, bawaan) {
+  const raw = String(nilai || bawaan || "");
+  return esc(raw.replace(/\/\//g, "/ /"));
 }
 
 /* ==========================================================
@@ -628,7 +636,7 @@ function htmlSuratMasuk(d) {
   return `
     ${kopSuratHTML()}
     <p class="center bold underline" style="font-size:13pt;margin-top:12px;">SURAT KETERANGAN MENERIMA SISWA PINDAHAN</p>
-    <p class="center" style="margin-bottom:14px;">No. : ${esc(d.no_surat || '400.7.22.1/____/SDN.SKM.03/____/____')}</p>
+    <p class="center" style="margin-bottom:14px;">No. : ${nomorSurat(d.no_surat, '400.7.22.1/____/SDN.SKM.03/____/____')}</p>
 
     <p>Yang bertanda tangan di bawah ini :</p>
     <table>
@@ -682,9 +690,11 @@ function htmlSuratKeluar(d) {
     <table style="width:100%;">
       <tr>
         <td style="width:52%;vertical-align:top;">
-          <p>Nomor&nbsp;&nbsp;&nbsp;&nbsp;: ${esc(d.no_surat || '400.3.12.1/____/SDN.SKM.03/____/____')}</p>
-          <p>Lampiran : ${esc(d.lampiran || '-')}</p>
-          <p>Perihal&nbsp;&nbsp;&nbsp;: Surat Mutasi/Pindah Sekolah</p>
+          <table>
+            <tr><td style="width:90px;">Nomor</td><td style="width:10px;">:</td><td>${nomorSurat(d.no_surat, '400.3.12.1/____/SDN.SKM.03/____/____')}</td></tr>
+            <tr><td>Lampiran</td><td>:</td><td>${esc(d.lampiran || '-')}</td></tr>
+            <tr><td>Perihal</td><td>:</td><td>Surat Mutasi/Pindah Sekolah</td></tr>
+          </table>
         </td>
         <td style="width:48%;vertical-align:top;">
           <p>Cikarang Pusat, ${esc(tanggalSurat)}</p>
