@@ -92,7 +92,7 @@ function kopSuratHTML() {
    tetap 1 baris, mis. 400.3.12.11/ /SDN.SKM.03/X/2026 */
 function nomorSurat(nilai, bawaan) {
   const raw = String(nilai || bawaan || "");
-  return esc(raw.replace(/\/\//g, "/\u00a0/"));
+  return esc(raw.replace(/\/\//g, "/\u00a0\u00a0\u00a0/"));
 }
 
 /* ==========================================================
@@ -515,10 +515,10 @@ function bangunCetakDiv(html) {
   div.className = 'cetak-f4';
   div.style.cssText = 'position:fixed;left:-10000px;top:0;background:#fff;';
   div.innerHTML = `<style>
-    .cetak-f4 { width: 215mm; font-family:'Times New Roman',serif; font-size:12pt; line-height:1.25; color:#000;
+    .cetak-f4 { width: 215mm; font-family:'Times New Roman',serif; font-size:11pt; line-height:1.25; color:#000;
                 padding:12mm 15mm 12mm 20mm; box-sizing:border-box; }
     .cetak-f4 table { border-collapse:collapse; width:100%; margin:2px 0; }
-    .cetak-f4 td, .cetak-f4 th { padding:1px 4px; vertical-align:top; font-size:12pt; }
+    .cetak-f4 td, .cetak-f4 th { padding:1px 4px; vertical-align:top; font-size:11pt; }
     .cetak-f4 p { margin:2px 0; }
     .cetak-f4 .center { text-align:center; }
     .cetak-f4 .justify { text-align:justify; text-justify:inter-word; }
@@ -599,15 +599,15 @@ xmlns="http://www.w3.org/TR/REC-html40">
 <style>
 @page Section1 {
   size: 215.9mm 330.2mm; /* F4 / Folio */
-  margin: 12mm 15mm 12mm 20mm;
+  margin: 8mm 15mm 12mm 20mm;
   mso-header-margin: 1cm;
   mso-footer-margin: 1cm;
   mso-paper-source: 0;
 }
 div.Section1 { page: Section1; }
-body { font-family: 'Times New Roman', serif; font-size: 12pt; color: #000; line-height: 1.25; }
+body { font-family: 'Times New Roman', serif; font-size: 11pt; color: #000; line-height: 1.25; }
 table { border-collapse: collapse; width: 100%; margin: 2px 0; }
-td, th { padding: 1px 4px; vertical-align: top; font-size: 12pt; }
+td, th { padding: 1px 4px; vertical-align: top; font-size: 11pt; }
 p { margin: 2px 0; }
 .center { text-align: center; }
 .justify { text-align: justify; }
@@ -788,7 +788,7 @@ function openPrintWindow(html, title) {
           padding: 0;
         }
         .page-container {
-          padding: 12mm 15mm 12mm 20mm; /* atas kanan bawah kiri — hemat, isi lebih memenuhi kertas */
+          padding: 8mm 15mm 12mm 20mm; /* atas kanan bawah kiri — hemat, isi lebih memenuhi kertas */
           page-break-after: avoid;
           page-break-inside: avoid;
         }
@@ -802,7 +802,7 @@ function openPrintWindow(html, title) {
         line-height: 1.25;
       }
       table { border-collapse: collapse; width: 100%; margin: 2px 0; }
-      td, th { padding: 1px 4px; vertical-align: top; font-size: 12pt; }
+      td, th { padding: 1px 4px; vertical-align: top; font-size: 11pt; }
       p { margin: 2px 0; }
       .center { text-align: center; }
       .justify { text-align: justify; text-justify: inter-word; }
