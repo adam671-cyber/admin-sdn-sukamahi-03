@@ -67,7 +67,7 @@ const inputKolom = (f, val) => {
 
 /* ========== KOP SURAT HTML (LOGO KABUPATEN BEKASI) ========== */
 function kopSuratHTML() {
-  const logoSrc = (typeof LOGO_KOP !== 'undefined' && LOGO_KOP) ? LOGO_KOP : 'src/logo-bekasi.png';
+  const logoSrc = (typeof LOGO_KOP !== 'undefined' && LOGO_KOP) ? LOGO_KOP : new URL('src/logo-bekasi.png', document.baseURI).href;
   return `
     <table style="width:100%;border-bottom:3px double #000;padding-bottom:8px;margin-bottom:14px;border-collapse:collapse;">
       <tr>
@@ -955,11 +955,11 @@ function openPrintWindow(html, title) {
   const win = window.open('', '_blank');
   if (!win) return alert('Pop-up diblokir browser. Izinkan pop-up untuk halaman ini, lalu coba lagi.');
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(title)}</title>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: blob: https:">
     <style>
       @page {
         size: 215mm 330mm; /* Standar F4 / Folio */
-        margin: 18mm 20mm 15mm 20mm;
+        margin: 15mm 20mm 15mm 25mm; /* atas kanan bawah kiri (kiri lebih lebar utk penjilidan) */
       }
       @media print {
         html, body {
@@ -977,7 +977,7 @@ function openPrintWindow(html, title) {
         font-size: 12pt;
         color: #000;
         margin: 0 auto;
-        padding: 15mm 20mm;
+        padding: 0; /* margin diatur @page saja — jangan ditumpuk lagi */
         line-height: 1.4;
       }
       table { border-collapse: collapse; width: 100%; margin: 3px 0; }
