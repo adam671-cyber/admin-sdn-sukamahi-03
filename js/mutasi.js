@@ -968,7 +968,7 @@ function openPrintWindow(html, title) {
           padding: 0;
         }
         .page-container {
-          padding: 15mm 20mm 15mm 25mm; /* atas kanan bawah kiri (kiri lebih lebar utk penjilidan) */
+          padding: 12mm 15mm 12mm 20mm; /* atas kanan bawah kiri — hemat, isi lebih memenuhi kertas */
           page-break-after: avoid;
           page-break-inside: avoid;
         }
