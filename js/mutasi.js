@@ -69,7 +69,7 @@ const inputKolom = (f, val) => {
 function kopSuratHTML() {
   const logoSrc = (typeof LOGO_KOP !== 'undefined' && LOGO_KOP) ? LOGO_KOP : new URL('src/logo-bekasi.png', document.baseURI).href;
   return `
-    <table style="width:100%;border-bottom:3px double #000;padding-bottom:8px;margin-bottom:14px;border-collapse:collapse;">
+    <table style="width:100%;border-bottom:3px double #000;padding-bottom:6px;margin-bottom:10px;border-collapse:collapse;">
       <tr>
         <td style="width:80px;vertical-align:middle;text-align:center;padding-right:10px;">
           <img src="${logoSrc}" width="75" height="90" style="width:75px;height:auto;max-width:75px;display:block;margin:0 auto;" alt="Logo Kabupaten Bekasi">
@@ -498,263 +498,14 @@ sb.auth.getSession().then(({ data }) => {
 });
 
 /* ==========================================================
-   PDF HELPER: Render row with auto-wrap & justify (F4 Folio)
-   ========================================================== */
-function drawPdfRow(doc, label, val, labelX, colonX, valX, maxValW, currentY, lineHeight = 5.2) {
-  doc.text(label, labelX, currentY);
-  doc.text(':', colonX, currentY);
-  const textVal = String(val || '_______________________');
-  const lines = doc.splitTextToSize(textVal, maxValW);
-  doc.text(lines, valX, currentY, { maxWidth: maxValW, align: 'justify' });
-  return currentY + (lines.length * lineHeight);
-}
-
-/* ==========================================================
-   GENERATE PDF â€” MUTASI MASUK (F4 FOLIO / 215mm x 330mm)
+   PDF — PERSIS FORMAT CETAK (buka jendela cetak; pilih tujuan "Save as PDF")
    ========================================================== */
 function generatePdfMasuk(d) {
-  const doc = new window.jspdf.jsPDF({ unit: 'mm', format: [215, 330] });
-  const w = 215;
-  const margin = 20;
-  const contentWidth = w - margin * 2;
-  let y = 18;
-
-  if (typeof LOGO_KOP !== 'undefined' && LOGO_KOP) {
-    try {
-      doc.addImage(LOGO_KOP, 'PNG', margin, 16, 22, 26);
-    } catch (e) {
-      console.warn('Gagal sematkan logo:', e);
-    }
-  }
-
-  const kopCenterX = w / 2 + 7;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13); doc.text('PEMERINTAH KABUPATEN BEKASI', kopCenterX, y, { align: 'center' }); y += 5.5;
-  doc.setFontSize(13); doc.text('DINAS PENDIDIKAN', kopCenterX, y, { align: 'center' }); y += 6.5;
-  doc.setFontSize(19); doc.text('SDN SUKAMAHI 03', kopCenterX, y, { align: 'center' }); y += 6.5;
-  doc.setFontSize(11); doc.text('KECAMATAN CIKARANG PUSAT', kopCenterX, y, { align: 'center' }); y += 4.5;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9); doc.text('Jl. Sukamahi Kp. Cimahi Rt. 007 Rw. 004 Ds. Sukamahi', kopCenterX, y, { align: 'center' }); y += 3.8;
-  doc.text('Kec. Cikarang Pusat Kab. Bekasi \u2013 17530 Email: sdnsukamahi03@gmail.com', kopCenterX, y, { align: 'center' }); y += 3.8;
-
-  doc.setLineWidth(0.8); doc.line(margin, y, w - margin, y); y += 1.2;
-  doc.setLineWidth(0.3); doc.line(margin, y, w - margin, y); y += 10;
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
-  doc.text('SURAT KETERANGAN MENERIMA SISWA PINDAHAN', w / 2, y, { align: 'center' }); y += 5.5;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(11);
-  doc.text('No. : ' + (d.no_surat || '400.7.22.1/____/SDN.SKM.03/____/____'), w / 2, y, { align: 'center' }); y += 12;
-
-  doc.text('Yang bertanda tangan di bawah ini :', margin, y); y += 7;
-
-  const labelX = margin + 5;
-  const colonX = margin + 48;
-  const valX = margin + 52;
-  const maxValW = (w - margin) - valX;
-
-  const kepsekData = [
-    ['Nama', d.nama_kepsek || 'KASWIN KARTAWIJAYA, M.Pd'],
-    ['NIP', d.nip_kepsek || '19720506 199903 1 007'],
-    ['Pangkat/Gol', d.pangkat_gol || 'Pembina Utama Muda / IVc'],
-    ['Jabatan', d.jabatan_kepsek || 'Kepala Sekolah'],
-    ['Unit Kerja', d.unit_kerja || 'SDN Sukamahi 03, Kec. Cikarang Pusat'],
-  ];
-  kepsekData.forEach(([lbl, val]) => {
-    doc.setFont('helvetica', 'normal');
-    doc.text(lbl, labelX, y);
-    doc.text(':', colonX, y);
-    doc.setFont('helvetica', 'bold');
-    y = drawPdfRow(doc, lbl, val, labelX, colonX, valX, maxValW, y, 6);
-  });
-  doc.setFont('helvetica', 'normal');
-  y += 5;
-
-  doc.text('Menerangkan bahwa siap menerima siswa pindahan :', margin, y); y += 7;
-  const siswaData = [
-    ['Nama', d.nama_siswa || ''],
-    ['TTL', d.ttl || ''],
-    ['Jenis Kelamin', d.jenis_kelamin || ''],
-    ['NISN', d.nisn || '-'],
-    ['Asal Sekolah', d.asal_sekolah || ''],
-    ['Kelas', d.kelas || ''],
-  ];
-  siswaData.forEach(([lbl, val]) => {
-    y = drawPdfRow(doc, lbl, val, labelX, colonX, valX, maxValW, y, 6);
-  });
-  y += 5;
-
-  doc.setFont('helvetica', 'bold');
-  doc.text('Dengan Persyaratan :', margin, y); y += 6.5;
-  doc.setFont('helvetica', 'normal');
-  const syarat = [
-    'Membawa Surat Pindah/mutasi dari Sekolah asal.',
-    'Membawa Surat Mutasi Dapodik dari Sekolah asal.',
-    'Membawa Fotocopy Raport (dari sekolah asal).',
-    'Menyerahkan fotocopy KK (Kartu Keluarga).',
-    'Menyerahkan Fotocopy Akta Kelahiran.',
-    'Menyerahkan Fotocopy KTP kedua orang tua.',
-  ];
-  syarat.forEach((s, i) => {
-    doc.text((i + 1) + '.  ' + s, margin + 4, y);
-    y += 5.8;
-  });
-  y += 6;
-
-  doc.text('Demikian surat keterangan ini dibuat untuk dipergunakan dan dipatuhi sebagaimana mestinya.', margin, y, { maxWidth: contentWidth, align: 'justify' }); y += 18;
-
-  const ttdX = w - margin - 65;
-  const tanggalStr = d.tanggal_surat ? tglID(new Date(d.tanggal_surat + 'T00:00:00')) : '_______________';
-  doc.text('Cikarang Pusat, ' + tanggalStr, ttdX, y); y += 5.5;
-  doc.text('Kepala SDN Sukamahi 03,', ttdX, y); y += 26;
-  doc.setFont('helvetica', 'bold');
-  doc.text(d.nama_kepsek || 'KASWIN KARTAWIJAYA, M.Pd', ttdX, y); y += 5.5;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9.5);
-  doc.text('NIP. ' + (d.nip_kepsek || '19720506 199903 1 007'), ttdX, y);
-
-  doc.save('Surat-Mutasi-Masuk-' + (d.nama_siswa || 'siswa').replace(/[^\w]+/g, '-') + '.pdf');
+  openPrintWindow(htmlSuratMasuk(d), 'Surat Mutasi Masuk - ' + (d.nama_siswa || '') + ' (pilih tujuan: Save as PDF)');
 }
 
-/* ==========================================================
-   GENERATE PDF â€” MUTASI KELUAR (F4 FOLIO / 215mm x 330mm)
-   ========================================================== */
 function generatePdfKeluar(d) {
-  const doc = new window.jspdf.jsPDF({ unit: 'mm', format: [215, 330] });
-  const w = 215;
-  const margin = 20;
-  const contentWidth = w - margin * 2;
-  let y = 16;
-
-  if (typeof LOGO_KOP !== 'undefined' && LOGO_KOP) {
-    try {
-      doc.addImage(LOGO_KOP, 'PNG', margin, 14, 22, 26);
-    } catch (e) {
-      console.warn('Gagal sematkan logo:', e);
-    }
-  }
-
-  const kopCenterX = w / 2 + 7;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13); doc.text('PEMERINTAH KABUPATEN BEKASI', kopCenterX, y, { align: 'center' }); y += 5.5;
-  doc.setFontSize(13); doc.text('DINAS PENDIDIKAN', kopCenterX, y, { align: 'center' }); y += 6.5;
-  doc.setFontSize(19); doc.text('SDN SUKAMAHI 03', kopCenterX, y, { align: 'center' }); y += 6.5;
-  doc.setFontSize(11); doc.text('KECAMATAN CIKARANG PUSAT', kopCenterX, y, { align: 'center' }); y += 4.5;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9); doc.text('Jl. Sukamahi Kp. Cimahi Rt. 007 Rw. 004 Ds. Sukamahi', kopCenterX, y, { align: 'center' }); y += 3.8;
-  doc.text('Kec. Cikarang Pusat Kab. Bekasi \u2013 17530 Email: sdnsukamahi03@gmail.com', kopCenterX, y, { align: 'center' }); y += 3.8;
-
-  doc.setLineWidth(0.8); doc.line(margin, y, w - margin, y); y += 1.2;
-  doc.setLineWidth(0.3); doc.line(margin, y, w - margin, y); y += 7;
-
-  doc.setFontSize(10.5);
-  const tanggalSurat = d.tanggal_surat ? tglID(new Date(d.tanggal_surat + 'T00:00:00')) : '_______________';
-  const rightColX = w / 2 + 10;
-  
-  doc.text('Nomor    : ' + (d.no_surat || '400.3.12.1/____/SDN.SKM.03/____/____'), margin, y);
-  doc.text('Cikarang Pusat, ' + tanggalSurat, rightColX, y); y += 5;
-  doc.text('Lampiran : ' + (d.lampiran || '-'), margin, y);
-  doc.text('Kepada Yth.', rightColX, y); y += 5;
-  doc.text('Perihal    : Surat Mutasi/Pindah Sekolah', margin, y);
-  doc.text('Kepala', rightColX, y); y += 5;
-  doc.text(d.sekolah_tujuan || '_______________________', rightColX, y); y += 5;
-  doc.text('di', rightColX, y); y += 5;
-  doc.text('Tempat', rightColX, y); y += 7;
-
-  const pembukaText = 'Kepala Sekolah Dasar Negeri Sukamahi 03 Kecamatan Cikarang Pusat Kabupaten Bekasi, dengan ini memberikan izin pindah sekolah/rayon kepada:';
-  doc.text(pembukaText, margin, y, { maxWidth: contentWidth, align: 'justify' });
-  const pembukaLines = doc.splitTextToSize(pembukaText, contentWidth);
-  y += pembukaLines.length * 5 + 3;
-
-  const labelX = margin + 4;
-  const colonX = margin + 44;
-  const valX = margin + 48;
-  const maxValW = (w - margin) - valX;
-
-  const siswaPairs = [
-    ['Nama', d.nama_siswa || ''],
-    ['Tempat, Tgl. Lahir', d.tempat_tgl_lahir || ''],
-    ['Jenis Kelamin', d.jenis_kelamin || ''],
-    ['NISN', d.nisn || ''],
-    ['Kelas', d.kelas || ''],
-    ['Asal Sekolah', d.asal_sekolah || 'SDN SUKAMAHI 03'],
-    ['Alamat Sekolah', d.alamat_sekolah || 'Jl. Raya Sukamahi Kp. Cimahi Rt. 007/004 Ds. Sukamahi Kec. Cikarang Pusat Kab. Bekasi'],
-  ];
-
-  siswaPairs.forEach(([lbl, val]) => {
-    y = drawPdfRow(doc, lbl, val, labelX, colonX, valX, maxValW, y, 5);
-  });
-  y += 2;
-
-  const ayahIbuStr = 'Ayah : ' + (d.nama_ayah || '_______________') + '          Ibu : ' + (d.nama_ibu || '_______________');
-  y = drawPdfRow(doc, 'Nama Orang Tua', ayahIbuStr, labelX, colonX, valX, maxValW, y, 5);
-  y = drawPdfRow(doc, 'Alamat Orang Tua', d.alamat_ortu || '', labelX, colonX, valX, maxValW, y, 5);
-  y += 3;
-
-  doc.setFont('helvetica', 'bold');
-  doc.text('Melanjutkan / Pindah ke :', labelX, y); y += 5.2;
-  doc.setFont('helvetica', 'normal');
-
-  const pindahPairs = [
-    ['Nama Sekolah', d.sekolah_tujuan || ''],
-    ['Kecamatan', d.kecamatan_tujuan || ''],
-    ['Kabupaten / Kota', d.kabupaten_tujuan || ''],
-    ['Provinsi', d.provinsi_tujuan || ''],
-    ['Alasan', d.alasan_pindah || ''],
-  ];
-
-  pindahPairs.forEach(([lbl, val]) => {
-    y = drawPdfRow(doc, lbl, val, labelX, colonX, valX, maxValW, y, 5);
-  });
-  y += 3;
-
-  const penutupText = 'Demikian surat ini kami buat untuk dipergunakan sebagaimana mestinya dan agar menjadi maklum adanya.';
-  doc.text(penutupText, margin, y, { maxWidth: contentWidth, align: 'justify' });
-  const penutupLines = doc.splitTextToSize(penutupText, contentWidth);
-  y += penutupLines.length * 5 + 4;
-
-  const ttdX = w - margin - 65;
-  doc.text('Kepala SDN Sukamahi 03,', ttdX, y); y += 20;
-  doc.setFont('helvetica', 'bold');
-  doc.text(d.nama_kepsek || 'KASWIN KARTAWIJAYA, M.Pd', ttdX, y); y += 5;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.text('NIP. ' + (d.nip_kepsek || '19720506 199903 1 007'), ttdX, y); y += 6;
-
-  doc.setFontSize(9.5);
-  doc.setLineWidth(0.3);
-  doc.line(margin, y, w - margin, y); y += 5;
-
-  doc.text('NSS : _______________________________________________', margin, y); y += 5.5;
-
-  const tujuanPairs = [
-    'Nama Sekolah',
-    'Status Sekolah',
-    'Alamat',
-    'Kecamatan',
-    'Kabupaten',
-    'Nama Siswa',
-    'Diterima di Kelas',
-  ];
-  const bLabelX = margin;
-  const bColonX = margin + 35;
-  const bValX = margin + 39;
-
-  tujuanPairs.forEach(lbl => {
-    doc.text(lbl, bLabelX, y);
-    doc.text(':', bColonX, y);
-    doc.text('____________________________________________________', bValX, y);
-    y += 4.8;
-  });
-  y += 2;
-
-  doc.text('____________________, __________________', ttdX - 10, y); y += 4.5;
-  doc.text('Kepala Sekolah,', ttdX - 10, y); y += 15;
-  doc.text('________________________________________', ttdX - 10, y); y += 4.5;
-  doc.text('NIP.', ttdX - 10, y);
-
-  doc.save('Surat-Mutasi-Keluar-' + (d.nama_siswa || 'siswa').replace(/[^\w]+/g, '-') + '.pdf');
+  openPrintWindow(htmlSuratKeluar(d), 'Surat Mutasi Keluar - ' + (d.nama_siswa || '') + ' (pilih tujuan: Save as PDF)');
 }
 
 /* ==========================================================
@@ -780,16 +531,16 @@ xmlns="http://www.w3.org/TR/REC-html40">
 <style>
 @page Section1 {
   size: 215.9mm 330.2mm; /* F4 / Folio */
-  margin: 2cm 2cm 2cm 2cm;
+  margin: 12mm 15mm 12mm 20mm;
   mso-header-margin: 1cm;
   mso-footer-margin: 1cm;
   mso-paper-source: 0;
 }
 div.Section1 { page: Section1; }
-body { font-family: 'Times New Roman', serif; font-size: 12pt; color: #000; line-height: 1.35; }
-table { border-collapse: collapse; width: 100%; margin: 3px 0; }
-td, th { padding: 3px 4px; vertical-align: top; font-size: 12pt; }
-p { margin: 3px 0; }
+body { font-family: 'Times New Roman', serif; font-size: 12pt; color: #000; line-height: 1.25; }
+table { border-collapse: collapse; width: 100%; margin: 2px 0; }
+td, th { padding: 1px 4px; vertical-align: top; font-size: 12pt; }
+p { margin: 2px 0; }
 .center { text-align: center; }
 .justify { text-align: justify; }
 .bold { font-weight: bold; }
@@ -855,7 +606,7 @@ function htmlSuratMasuk(d) {
     <table style="width:100%;">
       <tr><td style="width:55%;"></td><td>Cikarang Pusat, ${esc(tanggalStr)}</td></tr>
       <tr><td></td><td>Kepala SDN Sukamahi 03,</td></tr>
-      <tr><td></td><td><br/><br/><br/><br/></td></tr>
+      <tr><td></td><td><br/><br/></td></tr>
       <tr><td></td><td class="bold underline">${esc(d.nama_kepsek || 'KASWIN KARTAWIJAYA, M.Pd')}</td></tr>
       <tr><td></td><td>NIP. ${esc(d.nip_kepsek || '19720506 199903 1 007')}</td></tr>
     </table>`;
@@ -917,7 +668,7 @@ function htmlSuratKeluar(d) {
 
     <table style="width:100%;margin-top:6px;">
       <tr><td style="width:55%;"></td><td>Kepala SDN Sukamahi 03,</td></tr>
-      <tr><td></td><td><br/><br/><br/></td></tr>
+      <tr><td></td><td><br/><br/></td></tr>
       <tr><td></td><td class="bold underline">${esc(d.nama_kepsek || 'KASWIN KARTAWIJAYA, M.Pd')}</td></tr>
       <tr><td></td><td>NIP. ${esc(d.nip_kepsek || '19720506 199903 1 007')}</td></tr>
     </table>
@@ -979,11 +730,11 @@ function openPrintWindow(html, title) {
         color: #000;
         margin: 0 auto;
         padding: 0; /* margin diatur @page saja — jangan ditumpuk lagi */
-        line-height: 1.4;
+        line-height: 1.25;
       }
-      table { border-collapse: collapse; width: 100%; margin: 3px 0; }
-      td, th { padding: 3px 4px; vertical-align: top; font-size: 12pt; }
-      p { margin: 3px 0; }
+      table { border-collapse: collapse; width: 100%; margin: 2px 0; }
+      td, th { padding: 1px 4px; vertical-align: top; font-size: 12pt; }
+      p { margin: 2px 0; }
       .center { text-align: center; }
       .justify { text-align: justify; text-justify: inter-word; }
       .bold { font-weight: bold; }
