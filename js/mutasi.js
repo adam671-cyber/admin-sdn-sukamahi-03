@@ -88,10 +88,11 @@ function kopSuratHTML() {
 }
 
 /* Nomor surat: bila ada garis miring ganda (nomor manual belum diisi),
-   sisipkan satu spasi sebagai ruang penulisan, mis. 400.3.12.11/ /SDN.SKM.03/X/2026 */
+   sisipkan satu spasi tak-putus (nbsp) sebagai ruang penulisan manual —
+   tetap 1 baris, mis. 400.3.12.11/ /SDN.SKM.03/X/2026 */
 function nomorSurat(nilai, bawaan) {
   const raw = String(nilai || bawaan || "");
-  return esc(raw.replace(/\/\//g, "/ /"));
+  return esc(raw.replace(/\/\//g, "/\u00a0/"));
 }
 
 /* ==========================================================
@@ -691,16 +692,15 @@ function htmlSuratKeluar(d) {
       <tr>
         <td style="width:52%;vertical-align:top;">
           <table>
-            <tr><td style="width:90px;">Nomor</td><td style="width:10px;">:</td><td>${nomorSurat(d.no_surat, '400.3.12.1/____/SDN.SKM.03/____/____')}</td></tr>
+            <tr><td style="width:60px;">Nomor</td><td style="width:10px;">:</td><td style="white-space:nowrap;">${nomorSurat(d.no_surat, '400.3.12.1/____/SDN.SKM.03/____/____')}</td></tr>
             <tr><td>Lampiran</td><td>:</td><td>${esc(d.lampiran || '-')}</td></tr>
             <tr><td>Perihal</td><td>:</td><td>Surat Mutasi/Pindah Sekolah</td></tr>
           </table>
         </td>
-        <td style="width:48%;vertical-align:top;">
+        <td style="width:46%;vertical-align:top;padding-left:12mm;">
           <p>Cikarang Pusat, ${esc(tanggalSurat)}</p>
           <p>Kepada Yth.</p>
-          <p>Kepala</p>
-          <p class="bold">${esc(d.sekolah_tujuan || '_______________')}</p>
+          <p>${d.sekolah_tujuan ? 'Kepala <span class="bold">' + esc(d.sekolah_tujuan) + '.</span>' : 'Kepala _______________'}</p>
           <p>di</p>
           <p>Tempat</p>
         </td>
