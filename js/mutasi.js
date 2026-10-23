@@ -498,14 +498,73 @@ sb.auth.getSession().then(({ data }) => {
 });
 
 /* ==========================================================
-   PDF — PERSIS FORMAT CETAK (buka jendela cetak; pilih tujuan "Save as PDF")
+   PDF — file .pdf langsung unduh, dirender dari HTML surat
+   yang SAMA PERSIS dengan format cetak (215x330mm F4)
    ========================================================== */
+function bangunCetakDiv(html) {
+  const div = document.createElement('div');
+  div.className = 'cetak-f4';
+  div.style.cssText = 'position:fixed;left:-10000px;top:0;background:#fff;';
+  div.innerHTML = `<style>
+    .cetak-f4 { width: 215mm; font-family:'Times New Roman',serif; font-size:12pt; line-height:1.25; color:#000;
+                padding:12mm 15mm 12mm 20mm; box-sizing:border-box; }
+    .cetak-f4 table { border-collapse:collapse; width:100%; margin:2px 0; }
+    .cetak-f4 td, .cetak-f4 th { padding:1px 4px; vertical-align:top; font-size:12pt; }
+    .cetak-f4 p { margin:2px 0; }
+    .cetak-f4 .center { text-align:center; }
+    .cetak-f4 .justify { text-align:justify; text-justify:inter-word; }
+    .cetak-f4 .bold { font-weight:bold; }
+    .cetak-f4 .underline { text-decoration:underline; }
+    .cetak-f4 img { max-width:75px; height:auto; }
+  </style>` + html;
+  document.body.appendChild(div);
+  return div;
+}
+
+async function buatPdfMutasi(html, namaFile) {
+  const div = bangunCetakDiv(html);
+  try {
+    // tunggu semua gambar (logo) benar-benar termuat sebelum digambar
+    await Promise.all([...div.querySelectorAll('img')].map(img => img.decode().catch(() => {})));
+    await new Promise(r => setTimeout(r, 80));
+    const canvas = await html2canvas(div, { scale: 2, backgroundColor: '#ffffff' });
+    const pdf = new window.jspdf.jsPDF({ unit: 'mm', format: [215, 330], orientation: 'portrait' });
+    const L = 215, T = 330;
+    const tinggiMM = L * (canvas.height / canvas.width);
+    if (tinggiMM <= T) {
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, L, tinggiMM);
+    } else {
+      // isi melebihi 1 lembar: potong per halaman
+      const pxPerMM = canvas.width / L;
+      const pxTinggiLembar = T * pxPerMM;
+      let sisa = canvas.height, hal = 0;
+      while (sisa > 0) {
+        const ambil = Math.min(pxTinggiLembar, sisa);
+        const pot = document.createElement('canvas');
+        pot.width = canvas.width; pot.height = ambil;
+        pot.getContext('2d').drawImage(canvas, 0, hal * pxTinggiLembar, canvas.width, ambil, 0, 0, canvas.width, ambil);
+        if (hal > 0) pdf.addPage([215, 330], 'portrait');
+        pdf.addImage(pot.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, L, ambil / pxPerMM);
+        sisa -= ambil; hal++;
+      }
+    }
+    pdf.save(namaFile);
+  } catch (err) {
+    console.error('Gagal membuat PDF:', err);
+    alert('Gagal membuat PDF: ' + (err && err.message ? err.message : err));
+  } finally {
+    div.remove();
+  }
+}
+
+const namaAman = (d) => ('-' + ((d && d.nama_siswa) || 'siswa')).replace(/[^\w-]+/g, '-');
+
 function generatePdfMasuk(d) {
-  openPrintWindow(htmlSuratMasuk(d), 'Surat Mutasi Masuk - ' + (d.nama_siswa || '') + ' (pilih tujuan: Save as PDF)');
+  buatPdfMutasi(htmlSuratMasuk(d), 'Surat-Mutasi-Masuk' + namaAman(d) + '.pdf');
 }
 
 function generatePdfKeluar(d) {
-  openPrintWindow(htmlSuratKeluar(d), 'Surat Mutasi Keluar - ' + (d.nama_siswa || '') + ' (pilih tujuan: Save as PDF)');
+  buatPdfMutasi(htmlSuratKeluar(d), 'Surat-Mutasi-Keluar' + namaAman(d) + '.pdf');
 }
 
 /* ==========================================================
