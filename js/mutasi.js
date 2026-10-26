@@ -69,12 +69,12 @@ const inputKolom = (f, val) => {
 function kopSuratHTML() {
   const logoSrc = (typeof LOGO_KOP !== 'undefined' && LOGO_KOP) ? LOGO_KOP : new URL('src/logo-bekasi.png', document.baseURI).href;
   return `
-    <table style="width:100%;padding-bottom:6px;border-collapse:collapse;">
+    <table style="width:100%;padding-bottom:6px;border-collapse:collapse;font-family:Tahoma, sans-serif;">
       <tr>
         <td style="width:80px;vertical-align:middle;text-align:center;padding-right:10px;">
           <img src="${logoSrc}" width="75" height="90" style="width:75px;height:auto;max-width:75px;display:block;margin:0 auto;" alt="Logo Kabupaten Bekasi">
         </td>
-        <td style="text-align:center;vertical-align:middle;padding-right:80px;">
+        <td style="text-align:center;vertical-align:middle;padding-right:80px;font-family:Tahoma, sans-serif;">
           <p style="font-size:14pt;font-weight:bold;margin:0;line-height:1.2;letter-spacing:0.5px;">PEMERINTAH KABUPATEN BEKASI</p>
           <p style="font-size:14pt;font-weight:bold;margin:0;line-height:1.2;letter-spacing:0.5px;">DINAS PENDIDIKAN</p>
           <p style="font-size:20pt;font-weight:bold;margin:2px 0;line-height:1.2;letter-spacing:1px;">SDN SUKAMAHI 03</p>
