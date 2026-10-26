@@ -84,7 +84,10 @@ function kopSuratHTML() {
         </td>
       </tr>
     </table>
-    <div style="height:6px;border-bottom:3px double #000;margin:6px 0 10px 0;"></div>`;
+    <div style="height:6px;border-bottom:3px double #000;margin:6px 0 10px 0;"></div>
+    <!--[if gte mso 9]>
+    <p style="border-bottom:3px double #000;margin:2px 0 8px 0;">&nbsp;</p>
+    <![endif]-->`;
 }
 
 /* Nomor surat: bila ada garis miring ganda (nomor manual belum diisi),
