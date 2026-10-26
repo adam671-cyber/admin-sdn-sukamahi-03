@@ -248,3 +248,10 @@ html.dark .jh-dot-belum { border-color: rgba(232,238,234,.35) !important; color:
 }
 .tabel-lekat thead th:first-child { left: 0; z-index: 4; }
 html.dark .tabel-lekat tbody td:first-child { background-color: #2B3631; }
+
+/* Tampilan lebar: tampilan mutasi mengisi seluruh ruang samping & bawah */
+@media (min-width: 1024px) {
+  main:has(> section[id^="view-mutasi"]:not(.hidden)) { max-width: none; }
+  section[id^="view-mutasi"]:not(.hidden) { height: calc(100vh - var(--topbar) - 1.5rem); }
+  .tabel-lekat { flex: 1 1 0%; max-height: none; }
+}
