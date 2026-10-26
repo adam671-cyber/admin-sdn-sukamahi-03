@@ -252,6 +252,10 @@ html.dark .tabel-lekat tbody td:first-child { background-color: #2B3631; }
 /* Tampilan lebar: tampilan mutasi mengisi seluruh ruang samping & bawah */
 @media (min-width: 1024px) {
   main:has(> section[id^="view-mutasi"]:not(.hidden)) { max-width: none; }
-  section[id^="view-mutasi"]:not(.hidden) { height: calc(100vh - var(--topbar) - 1.5rem); }
+  section[id^="view-mutasi"]:not(.hidden) {
+    height: calc(100vh - var(--topbar) - 1.5rem);
+    grid-template-rows: minmax(0, 1fr); /* lajur terkunci tinggi layar, bukan tinggi isi tabel */
+  }
+  section[id^="view-mutasi"] > article { min-height: 0; }
   .tabel-lekat { flex: 1 1 0%; max-height: none; }
 }
