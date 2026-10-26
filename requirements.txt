@@ -1,8 +1,0 @@
-flask
-Werkzeug
-gunicorn
-google-generativeai
-firebase-admin
-python-dotenv
-requests
-
