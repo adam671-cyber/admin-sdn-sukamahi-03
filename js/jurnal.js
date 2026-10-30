@@ -156,9 +156,29 @@ const jHariTgl = (yyyyMmDd) => {
   return HARI_ID[d.getDay()] + ', ' + tglID(d);
 };
 
+/* Hari kerja terakhir bulan = hari Senin–Jumat terakhir (Sabtu/Minggu dilompati).
+   Pada tanggal itu laporan berjudul "JURNAL BULANAN PEGAWAI", hari lain tetap harian. */
+const jHariKerjaTerakhir = (yyyyMmDd) => {
+  const [y, m] = String(yyyyMmDd || '').slice(0, 10).split('-').map(Number);
+  if (!y || !m) return '';
+  const d = new Date(y, m, 0);
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() - 1);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+};
+const jBulanan = (tgl) => !!jHariKerjaTerakhir(tgl) && jHariKerjaTerakhir(tgl) === String(tgl || '').slice(0, 10);
+const jJudulDokumen = (tgl) => (jBulanan(tgl) ? 'JURNAL BULANAN PEGAWAI' : 'JURNAL KERJA HARIAN');
+const jJudulKartu = (tgl) => (jBulanan(tgl) ? 'Jurnal Bulanan Pegawai' : 'Jurnal Kerja Harian');
+function jTerapkanJudul() {
+  const tgl = jTglVal();
+  const set = (id, v) => { const n = document.getElementById(id); if (n) n.textContent = v; };
+  set('j-judul-kartu', jJudulKartu(tgl));
+  set('j-judul-laporan', jJudulDokumen(tgl));
+}
+
 async function muatJurnal() {
   if (!$('#j-tanggal').value) $('#j-tanggal').value = jTglVal();
   const tgl = jTglVal();
+  jTerapkanJudul();
   const terbatas = (typeof hanyaJurnal === 'function') ? hanyaJurnal() : true;
   const adminLihat = !terbatas && (typeof adalahAdmin === 'function' ? adalahAdmin() : false);
   const fp = $('#j-filter-pemilik');
@@ -270,6 +290,7 @@ function jTerapkanTtdManual() {
 
 function renderJurnal() {
   const tb = $('#j-tabel-body');
+  jTerapkanJudul();
   if (!tb) return;
   const tglTxt = jHariTgl(jTglVal());
   $('#j-jumlah').textContent = jurnalDaftar.length + '/3 kegiatan pada ' + tglTxt + ' (1 hari full 3 kegiatan)';
@@ -977,6 +998,7 @@ async function cetakJurnal() {
   const namaCetak = (idn && idn.dataset.nama) || jNamaSaya();
   const ttdCetak = (!jTtdManual() && idn && idn.dataset.ttd) || '';
   const tgl = jHariTgl(jTglVal());
+  const judulCetak = jJudulDokumen(jTglVal());
   const tglTtd = tglID(new Date(jTglVal() + 'T00:00:00'));
   const foto = {};
   await Promise.all(jurnalDaftar.map(async (j) => {
@@ -995,11 +1017,11 @@ async function cetakJurnal() {
       <td style="border:1px solid #000;padding:6px;vertical-align:top">${esc(j.keterangan || '')}</td>
     </tr>`).join('');
   const kopBaris = (label, nilai) => `<tr><td style="white-space:nowrap;vertical-align:top;width:130px">${label}</td><td style="padding:0 6px;vertical-align:top;width:12px">:</td><td style="vertical-align:top">${nilai}</td></tr>`;
-  const html = `<html><head><meta charset="utf-8"><title>Jurnal Kerja Harian - ${esc(namaCetak)}</title><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https://*.supabase.co data:; style-src 'unsafe-inline'"><style>
+  const html = `<html><head><meta charset="utf-8"><title>${esc(judulCetak)} - ${esc(namaCetak)}</title><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https://*.supabase.co data:; style-src 'unsafe-inline'"><style>
     body{font-family:'Times New Roman',serif;color:#000;margin:24px}
     table{border-collapse:collapse;width:100%}
     @page{size:215mm 330mm;margin:12mm}</style></head><body>
-    <h3 style="text-align:center;margin:0 0 14px">JURNAL KERJA HARIAN</h3>
+    <h3 style="text-align:center;margin:0 0 14px">${esc(judulCetak)}</h3>
     <table style="margin-bottom:0"><tr>
       <td style="border:1px solid #000;padding:8px;width:70%;font-size:11pt;line-height:1.6">
         <table style="border-collapse:collapse;width:100%;font-size:11pt;line-height:1.6">
@@ -1046,7 +1068,8 @@ async function cetakJurnal() {
 function jNamaFile(ekstensi) {
   const idn = $('#j-identitas');
   const nama = ((idn && idn.dataset.nama) || jNamaSaya() || 'jurnal').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-');
-  return `jurnal-harian-${nama}-${jTglVal()}.${ekstensi}`;
+  const jenis = jBulanan(jTglVal()) ? 'bulanan' : 'harian';
+  return `jurnal-${jenis}-${nama}-${jTglVal()}.${ekstensi}`;
 }
 function jSiapkanKlonCetak() {
   const lap = $('#j-laporan');
