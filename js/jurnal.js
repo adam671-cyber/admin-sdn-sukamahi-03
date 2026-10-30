@@ -156,7 +156,7 @@ const jHariTgl = (yyyyMmDd) => {
   return HARI_ID[d.getDay()] + ', ' + tglID(d);
 };
 
-/* Hari kerja terakhir bulan = hari Senin–Jumat terakhir (Sabtu/Minggu dilompati).
+/* Hari kerja terakhir bulan = hari Senin-Jumat terakhir (Sabtu/Minggu dilompati).
    Pada tanggal itu laporan berjudul "JURNAL BULANAN PEGAWAI", hari lain tetap harian. */
 const jHariKerjaTerakhir = (yyyyMmDd) => {
   const [y, m] = String(yyyyMmDd || '').slice(0, 10).split('-').map(Number);
@@ -334,14 +334,81 @@ function renderJurnal() {
   });
 }
 
-function blokKegiatan(i, item) {
+/* ---------- Waktu: pemilih jam & menit 24 jam (tanpa AM/PM), disimpan "05.20-06.30" ---------- */
+const jWaktuPecah = (teks) => {
+  const m = String(teks || '').match(/(\d{1,2})[.:](\d{2})\s*(?:-|\u2013|\u2014|s\s*\.?\s*[/.]?\s*d\.?|sampai)\s*(\d{1,2})[.:](\d{2})/i);
+  if (!m) return { mulai: '', selesai: '' };
+  const jam = (h, mi) => (Number(h) > 23 || Number(mi) > 59 ? ''
+    : String(Number(h)).padStart(2, '0') + ':' + String(Number(mi)).padStart(2, '0'));
+  const mulai = jam(m[1], m[2]), selesai = jam(m[3], m[4]);
+  return mulai && selesai ? { mulai, selesai } : { mulai: '', selesai: '' };
+};
+const jWaktuTeks = (mulai, selesai) => (
+  mulai && selesai ? String(mulai).replace(':', '.') + '-' + String(selesai).replace(':', '.') : ''
+);
+/* Dropdown 24 jam: nilai "00".."23" / "00".."59" agar tidak bergantung locale (AM/PM). */
+function jPilihAngka(nama, batas, nilai) {
+  const opsi = ['<option value="">--</option>'];
+  for (let n = 0; n < batas; n++) {
+    const v = String(n).padStart(2, '0');
+    opsi.push(`<option value="${v}"${v === nilai ? ' selected' : ''}>${v}</option>`);
+  }
+  return `<select name="${nama}" class="mt-0.5 rounded-lg border border-ink/20 px-2 py-2 text-sm font-normal tabular-nums">${opsi.join('')}</select>`;
+}
+const jPilihWaktu = (peran, i, nilai) => {
+  const [jam = '', menit = ''] = String(nilai || '').split(':');
+  return `<div class="flex items-center gap-1">
+    ${jPilihAngka('waktu_' + peran + '_jam_' + i, 24, jam)}
+    <span class="text-sm font-bold text-ink/40">:</span>
+    ${jPilihAngka('waktu_' + peran + '_menit_' + i, 60, menit)}
+  </div>`;
+};
+/* Ambil & validasi waktu dari form; melempar pesan bila tidak lengkap atau terbalik. */
+function jWaktuForm(fd, i) {
+  const ambil = (peran) => {
+    const jam = String(fd.get('waktu_' + peran + '_jam_' + i) || '');
+    const menit = String(fd.get('waktu_' + peran + '_menit_' + i) || '');
+    return jam && menit ? jam + ':' + menit : '';
+  };
+  const mulai = ambil('mulai'), selesai = ambil('selesai');
+  if (!mulai || !selesai) throw new Error('Jam mulai dan jam selesai kegiatan ' + (i + 1) + ' wajib diisi.');
+  if (selesai <= mulai) throw new Error('Jam selesai harus lebih besar dari jam mulai (kegiatan ' + (i + 1) + ').');
+  return jWaktuTeks(mulai, selesai);
+}
+/* Perbarui teks "Tersimpan: ..." saat pilihan jam/menit berubah. */
+function jPratinjauWaktu(target) {
+  const m = String((target && target.name) || '').match(/^waktu_(?:mulai|selesai)_(?:jam|menit)_(\d+)$/);
+  if (!m || !target.form) return;
+  const i = m[1];
+  const fd = new FormData(target.form);
+  const ambil = (peran) => {
+    const jam = String(fd.get('waktu_' + peran + '_jam_' + i) || '');
+    const menit = String(fd.get('waktu_' + peran + '_menit_' + i) || '');
+    return jam && menit ? jam + ':' + menit : '';
+  };
+  const el = document.querySelector('[data-waktu-pratinjau="' + i + '"]');
+  if (el) el.textContent = jWaktuTeks(ambil('mulai'), ambil('selesai')) || '-';
+}
+
+function blokKegiatan(i, item, nomor) {
   const it = item || {};
+  const wkt = jWaktuPecah(it.waktu);
+  const urut = nomor || i + 1;
   return `
     <fieldset class="rounded-xl border border-ink/15 p-3" data-blok="${i}">
-      <legend class="px-1 text-sm font-extrabold">Kegiatan ${i + 1}</legend>
+      <legend class="px-1 text-sm font-extrabold">Kegiatan ${urut}</legend>
       <div class="grid gap-2.5">
-        <label class="block text-sm font-semibold">Waktu
-          <input name="waktu_${i}" placeholder="cth: 07.00 - 08.00" value="${esc(it.waktu || '')}" class="mt-1 w-full rounded-lg border border-ink/20 px-3 py-2 text-sm font-normal"></label>
+        <div>
+          <p class="text-sm font-semibold">Waktu</p>
+          <div class="mt-1 grid grid-cols-[1fr_auto_1fr] items-end gap-2">
+            <div class="text-[11px] font-semibold text-ink/60">Jam mulai
+              ${jPilihWaktu('mulai', i, wkt.mulai)}</div>
+            <span class="pb-2.5 text-sm font-bold text-ink/40">-</span>
+            <div class="text-[11px] font-semibold text-ink/60">Jam selesai
+              ${jPilihWaktu('selesai', i, wkt.selesai)}</div>
+          </div>
+          <p class="mt-1 text-[11px] text-ink/60">Tersimpan: <span data-waktu-pratinjau="${i}" class="font-semibold text-ink/80">${esc(jWaktuTeks(wkt.mulai, wkt.selesai) || it.waktu || '-')}</span></p>
+        </div>
         <label class="block text-sm font-semibold">Kegiatan
           <textarea name="kegiatan_${i}" rows="7" placeholder="Tulis kegiatan yang dilakukan" style="text-align:justify;min-height:11rem" class="mt-1 h-44 w-full resize-y rounded-lg border border-ink/20 px-3 py-2 text-sm font-normal leading-relaxed">${esc(it.kegiatan || '')}</textarea></label>
         <div>
@@ -864,15 +931,17 @@ function bukaFormJurnal(item) {
   const isi = $('#md-isi'), aksi = $('#md-actions');
   $('#md-sub').textContent = tglID(new Date(jTglVal() + 'T00:00:00'));
   if (item) {
-    $('#md-nama').textContent = 'Edit kegiatan';
-    isi.innerHTML = `<form id="j-form" class="grid gap-3">${blokKegiatan(0, item)}</form>`;
+    const urut = jurnalDaftar.findIndex((j) => String(j.id) === String(item.id)) + 1;
+    $('#md-nama').textContent = urut > 0 ? 'Edit kegiatan ' + urut : 'Edit kegiatan';
+    isi.innerHTML = `<form id="j-form" class="grid gap-3">${blokKegiatan(0, item, urut > 0 ? urut : 1)}</form>`;
   } else {
     if (jurnalDaftar.length >= 3) return alert('Sudah 3 kegiatan pada tanggal ini (1 hari full). Edit atau hapus dulu untuk mengubah.');
-    $('#md-nama').textContent = 'Tambah jurnal harian (3 kegiatan)';
     const kosong = 3 - jurnalDaftar.length;
+    const mulaiDari = jurnalDaftar.length + 1;
+    $('#md-nama').textContent = 'Tambah jurnal harian';
     isi.innerHTML = `<form id="j-form" class="grid gap-3">
-      <p class="text-xs text-ink/60">Isi ${kosong} kegiatan untuk ${tglID(new Date(jTglVal() + 'T00:00:00'))}. Blok yang kegiatannya kosong tidak disimpan.</p>
-      ${[0, 1, 2].slice(0, kosong).map((k) => blokKegiatan(k, null)).join('')}
+      <p class="text-xs text-ink/60">Isi kegiatan ${mulaiDari}${kosong > 1 ? ' sampai ' + (mulaiDari + kosong - 1) : ''} untuk ${tglID(new Date(jTglVal() + 'T00:00:00'))}. Blok yang kegiatannya kosong tidak disimpan.</p>
+      ${Array.from({ length: kosong }, (_, k) => blokKegiatan(k, null, mulaiDari + k)).join('')}
     </form>`;
   }
   aksi.innerHTML = `
@@ -907,6 +976,9 @@ async function simpanJurnal() {
   try {
     if (jurnalEditId) {
       const lama = jurnalDaftar.find((j) => String(j.id) === String(jurnalEditId)) || {};
+      const kegiatan = String(fd.get('kegiatan_0') || '').trim();
+      if (!kegiatan) throw new Error('Kegiatan wajib diisi.');
+      const waktu = jWaktuForm(fd, 0);
       let bukti_path = lama.bukti_path || null, bukti_nama = lama.bukti_nama || null;
       let file = validFoto(fd.get('bukti_file_0'));
       if (file) {
@@ -916,12 +988,10 @@ async function simpanJurnal() {
         if (error) throw error;
         bukti_path = path; bukti_nama = file.name;
       }
-      const kegiatan = String(fd.get('kegiatan_0') || '').trim();
-      if (!kegiatan) throw new Error('Kegiatan wajib diisi.');
       const row = {
         user_id: session.user.id,
         tanggal: jTglVal(),
-        waktu: String(fd.get('waktu_0') || '').trim(),
+        waktu,
         kegiatan,
         bukti_path, bukti_nama,
         keterangan: null,
@@ -939,6 +1009,7 @@ async function simpanJurnal() {
         if (fd.get('kegiatan_' + i) === null) continue;
         const kegiatan = String(fd.get('kegiatan_' + i) || '').trim();
         if (!kegiatan) continue;
+        const waktu = jWaktuForm(fd, i);
         let file = validFoto(fd.get('bukti_file_' + i));
         let bukti_path = null, bukti_nama = null;
         if (file) {
@@ -951,7 +1022,7 @@ async function simpanJurnal() {
         rows.push({
           user_id: session.user.id,
           tanggal: jTglVal(),
-          waktu: String(fd.get('waktu_' + i) || '').trim(),
+          waktu,
           kegiatan,
           bukti_path, bukti_nama,
           keterangan: null,
@@ -1182,6 +1253,9 @@ document.addEventListener('change', (e) => {
   const id = e.target.id || '';
   if (id.startsWith('bukti_file_')) jTampilkanBuktiForm(id.slice('bukti_file_'.length));
 });
+/* Pratinjau teks waktu yang akan tersimpan, supaya terlihat sebelum menyimpan */
+document.addEventListener('input', (e) => jPratinjauWaktu(e.target));
+document.addEventListener('change', (e) => jPratinjauWaktu(e.target));
 const jAksiBtn = $('#j-aksi'), jAksiMenu = $('#j-aksi-menu');
 if (jAksiBtn && jAksiMenu) {
   jAksiBtn.onclick = (e) => { e.stopPropagation(); jAksiMenu.classList.toggle('hidden'); };
