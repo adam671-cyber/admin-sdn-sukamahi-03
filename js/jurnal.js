@@ -346,23 +346,124 @@ const jWaktuPecah = (teks) => {
 const jWaktuTeks = (mulai, selesai) => (
   mulai && selesai ? String(mulai).replace(':', '.') + '-' + String(selesai).replace(':', '.') : ''
 );
-/* Dropdown 24 jam: nilai "00".."23" / "00".."59" agar tidak bergantung locale (AM/PM). */
-function jPilihAngka(nama, batas, nilai) {
-  const opsi = ['<option value="">--</option>'];
-  for (let n = 0; n < batas; n++) {
-    const v = String(n).padStart(2, '0');
-    opsi.push(`<option value="${v}"${v === nilai ? ' selected' : ''}>${v}</option>`);
+/* Scroll wheel 24 jam ala iOS: 2 kolom (jam & menit) per peran.
+   Menit penuh 00–59 (tidak di-step 5). User tinggal scroll/gulir langsung
+   — tidak perlu tahan-dan-geser. Container kecil (tinggi = 1 item). */
+const J_WHEEL_ITEM = 44;      // tinggi per angka (px)
+const J_WHEEL_JAM_RANGE = 24;     // 0..23
+const J_WHEEL_MENIT_RANGE = 60;   // 0..59
+
+const jWheelKolom = (peran, i, label, nilai, range, step) => {
+  const pad = (n) => String(n).padStart(2, '0');
+  const labelLower = label.toLowerCase();
+  const items = [];
+  for (let n = 0; n < range; n++) {
+    const v = pad(n * step);
+    const terpilih = v === String(nilai || '');
+    items.push(`<li data-j-w="${n}" data-j-w-val="${v}" class="flex h-[44px] items-center justify-center text-2xl select-none cursor-pointer ${terpilih ? 'font-bold text-ink' : 'font-medium text-ink/40'}">${v}</li>`);
   }
-  return `<select name="${nama}" class="mt-0.5 rounded-lg border border-ink/20 px-2 py-2 text-sm font-normal tabular-nums">${opsi.join('')}</select>`;
-}
-const jPilihWaktu = (peran, i, nilai) => {
-  const [jam = '', menit = ''] = String(nilai || '').split(':');
-  return `<div class="flex items-center gap-1">
-    ${jPilihAngka('waktu_' + peran + '_jam_' + i, 24, jam)}
-    <span class="text-sm font-bold text-ink/40">:</span>
-    ${jPilihAngka('waktu_' + peran + '_menit_' + i, 60, menit)}
+  /* default offset: item tengah dari range; hidden input kosong */
+  const defaultIdx = Math.min(2, range - 1);
+  return `<div class="flex flex-col items-center gap-0.5">
+    <span class="text-[10px] font-semibold tracking-wider text-ink/60">${label}</span>
+    <ol class="j-wheel" data-wheel data-peran="${peran}" data-i="${i}" data-label="${labelLower}"
+        data-range="${range}" data-step="${step}" data-offset="${defaultIdx * J_WHEEL_ITEM}">
+      <div class="j-wheel-list" style="transform:translateY(${-defaultIdx * J_WHEEL_ITEM}px)">
+        ${items.join('')}
+      </div>
+    </ol>
+    <input type="hidden" name="waktu_${peran}_${labelLower}_${i}" value="${String(nilai || '')}">
   </div>`;
 };
+
+/* 2 kolom (jam & menit) + label peran (Mulai/Selesai) + hidden fields. */
+const J_LABEL_PERAN = { mulai: 'Mulai', selesai: 'Selesai' };
+const jPilihWaktu = (peran, i, nilai) => {
+  const [jam = '', menit = ''] = String(nilai || '').split(':');
+  return `<div>
+    <p class="mb-1.5 text-[11px] font-bold text-ink/70">${J_LABEL_PERAN[peran] || ''}</p>
+    <div class="flex items-end gap-3">
+      ${jWheelKolom(peran, i, 'JAM', jam, J_WHEEL_JAM_RANGE, 1)}
+      <span class="pb-2 text-lg font-bold text-ink/40">:</span>
+      ${jWheelKolom(peran, i, 'MENIT', menit, J_WHEEL_MENIT_RANGE, 1)}
+    </div>
+  </div>`;
+};
+
+/* Terapkan offset: geser list ke posisi idx, update gaya item & hidden input */
+const jWheelTerapkan = (ol) => {
+  const range = Number(ol.dataset.range);
+  const step = Number(ol.dataset.step);
+  const per = J_WHEEL_ITEM;
+  const idx = Number(ol.dataset.offset || 0) / per;
+  const list = ol.querySelector('.j-wheel-list');
+  if (list) list.style.transform = 'translateY(' + (-idx * per) + 'px)';
+  const peran = ol.dataset.peran;
+  const i = ol.dataset.i;
+  const labelLower = (ol.dataset.label || 'jam').toLowerCase();
+  const val = String(idx * step).padStart(2, '0');
+  Array.from(list.children).forEach((li, n) => {
+    const terpilih = Number(n) === Number(idx);
+    li.classList.toggle('font-bold', terpilih);
+    li.classList.toggle('text-ink', terpilih);
+    li.classList.toggle('font-medium', !terpilih);
+    li.classList.toggle('text-ink/40', !terpilih);
+  });
+  const form = ol.closest('form');
+  if (form) {
+    const input = form.querySelector(`input[name="waktu_${peran}_${labelLower}_${i}"]`);
+    if (input) { input.value = val; jPratinjauWaktu(input); }
+  }
+};
+
+/* Helper: geser offset ol ke idx baru (clamp 0..range-1) lalu terapkan */
+const jWheelGeser = (ol, idx) => {
+  const range = Number(ol.dataset.range);
+  const per = J_WHEEL_ITEM;
+  const di = Math.max(0, Math.min(range - 1, Math.round(idx)));
+  ol.dataset.offset = di * per;
+  jWheelTerapkan(ol);
+};
+
+/* Mouse wheel: 1 tick = 1 item, responsif gulir biasa */
+document.addEventListener('wheel', (e) => {
+  const ol = e.target.closest('[data-wheel]');
+  if (!ol) return;
+  e.preventDefault();
+  const curIdx = Number(ol.dataset.offset || 0) / J_WHEEL_ITEM;
+  const delta = e.deltaY > 0 ? 1 : -1;
+  jWheelGeser(ol, Math.round(curIdx) + delta);
+}, { passive: false });
+
+/* Klik item yang terlihat: langsung geser ke item itu (tanpa perlu tahan) */
+document.addEventListener('click', (e) => {
+  const li = e.target.closest('[data-j-w]');
+  if (!li) return;
+  const ol = li.closest('[data-wheel]');
+  if (!ol) return;
+  jWheelGeser(ol, Number(li.dataset.jw));
+});
+
+/* Swipe sentuh (HP): geser jari langsung, tanpa perlu tahan dulu.
+    Catat posisi mulai saat jari nge-tap, lalu update offset saat geser. */
+document.addEventListener('touchstart', (e) => {
+  const ol = e.target.closest('[data-wheel]');
+  if (!ol) return;
+  ol._jStartY = e.touches[0].clientY;
+  ol._jStartOffset = Number(ol.dataset.offset || 0);
+}, { passive: false });
+document.addEventListener('touchmove', (e) => {
+  const ol = e.target.closest('[data-wheel]');
+  if (!ol || ol._jStartY == null) return;
+  e.preventDefault();
+  const dy = e.touches[0].clientY - ol._jStartY;
+  const deltaItems = Math.round(-dy / J_WHEEL_ITEM);
+  const range = Number(ol.dataset.range);
+  const di = Math.max(0, Math.min(range - 1,
+    Math.round(ol._jStartOffset / J_WHEEL_ITEM) + deltaItems));
+  ol.dataset.offset = di * J_WHEEL_ITEM;
+  jWheelTerapkan(ol);
+}, { passive: false });
 /* Ambil & validasi waktu dari form; melempar pesan bila tidak lengkap atau terbalik. */
 function jWaktuForm(fd, i) {
   const ambil = (peran) => {
@@ -400,12 +501,9 @@ function blokKegiatan(i, item, nomor) {
       <div class="grid gap-2.5">
         <div>
           <p class="text-sm font-semibold">Waktu</p>
-          <div class="mt-1 grid grid-cols-[1fr_auto_1fr] items-end gap-2">
-            <div class="text-[11px] font-semibold text-ink/60">Jam mulai
-              ${jPilihWaktu('mulai', i, wkt.mulai)}</div>
-            <span class="pb-2.5 text-sm font-bold text-ink/40">-</span>
-            <div class="text-[11px] font-semibold text-ink/60">Jam selesai
-              ${jPilihWaktu('selesai', i, wkt.selesai)}</div>
+          <div class="mt-1 grid grid-cols-2 gap-3">
+            ${jPilihWaktu('mulai', i, wkt.mulai)}
+            ${jPilihWaktu('selesai', i, wkt.selesai)}
           </div>
           <p class="mt-1 text-[11px] text-ink/60">Tersimpan: <span data-waktu-pratinjau="${i}" class="font-semibold text-ink/80">${esc(jWaktuTeks(wkt.mulai, wkt.selesai) || it.waktu || '-')}</span></p>
         </div>
@@ -1253,7 +1351,7 @@ document.addEventListener('change', (e) => {
   const id = e.target.id || '';
   if (id.startsWith('bukti_file_')) jTampilkanBuktiForm(id.slice('bukti_file_'.length));
 });
-/* Pratinjau teks waktu yang akan tersimpan, supaya terlihat sebelum menyimpan */
+/* Pratinjau teks waktu yang akan tersimpan, supaya terlihat sebelum menyimpan. */
 document.addEventListener('input', (e) => jPratinjauWaktu(e.target));
 document.addEventListener('change', (e) => jPratinjauWaktu(e.target));
 const jAksiBtn = $('#j-aksi'), jAksiMenu = $('#j-aksi-menu');

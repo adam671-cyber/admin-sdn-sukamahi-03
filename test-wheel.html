@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Test Wheel Waktu - Jurnal Mobile</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ink: '#1F6B4F',
+            kertas: '#F5F3EE',
+            hijau: '#1F6B4F',
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="css/jurnal-wheel.css">
+  <style>
+    /* Tampilan mobile: lebaran viewport HP */
+    body { max-width: 400px; margin: 0 auto; }
+  </style>
+</head>
+<body class="bg-white">
+  <!-- Simulasi form journal mobile -->
+  <div class="border border-ink/15 rounded-xl p-4 my-4">
+    <h3 class="font-extrabold text-base">Kegiatan 1</h3>
+    <div class="grid gap-2.5 mt-3">
+      <div>
+        <p class="text-sm font-semibold">Waktu</p>
+        <div class="mt-1 grid grid-cols-2 gap-3">
+          <!-- diisi oleh JS -->
+        </div>
+        <p class="mt-1 text-[11px] text-ink/60">Tersimpan: <span data-waktu-pratinjau="0" class="font-semibold text-ink/80">-</span></p>
+      </div>
+      <label class="block text-sm font-semibold">Kegiatan
+        <textarea rows="3" class="mt-1 h-32 w-full resize-y rounded-lg border border-ink/20 px-3 py-2 text-sm" placeholder="Tulis kegiatan"></textarea>
+      </label>
+    </div>
+  </div>
+
+  <script src="js/jurnal-wheel-test.js"></script>
+</body>
+</html>
