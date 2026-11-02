@@ -435,17 +435,33 @@ document.addEventListener('wheel', (e) => {
   jWheelGeser(ol, Math.round(curIdx) + delta);
 }, { passive: false });
 
-/* Klik item yang terlihat: langsung geser ke item itu (tanpa perlu tahan) */
-document.addEventListener('click', (e) => {
-  const li = e.target.closest('[data-j-w]');
-  if (!li) return;
-  const ol = li.closest('[data-wheel]');
+/* Mouse drag (desktop): klik & tahan, lalu geser mouse.
+   Catat posisi mulai saat mousedown, update offset saat mousemove. */
+document.addEventListener('mousedown', (e) => {
+  const ol = e.target.closest('[data-wheel]');
   if (!ol) return;
-  jWheelGeser(ol, Number(li.dataset.jw));
+  e.preventDefault();
+  ol._jStartY = e.clientY;
+  ol._jStartOffset = Number(ol.dataset.offset || 0);
+  const onMove = (ev) => {
+    const dy = ev.clientY - ol._jStartY;
+    const deltaItems = Math.round(-dy / J_WHEEL_ITEM);
+    const range = Number(ol.dataset.range);
+    const di = Math.max(0, Math.min(range - 1,
+      Math.round(ol._jStartOffset / J_WHEEL_ITEM) + deltaItems));
+    ol.dataset.offset = di * J_WHEEL_ITEM;
+    jWheelTerapkan(ol);
+  };
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
 });
 
 /* Swipe sentuh (HP): geser jari langsung, tanpa perlu tahan dulu.
-    Catat posisi mulai saat jari nge-tap, lalu update offset saat geser. */
+   Catat posisi mulai saat jari nge-tap, lalu update offset saat geser. */
 document.addEventListener('touchstart', (e) => {
   const ol = e.target.closest('[data-wheel]');
   if (!ol) return;
