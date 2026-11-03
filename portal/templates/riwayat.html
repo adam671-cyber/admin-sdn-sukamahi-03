@@ -10,6 +10,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Marked.js untuk render Markdown ke HTML -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- DOMPurify: sanitasi output markdown sebelum masuk innerHTML (anti-XSS) -->
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
 
     <style>
         .navbar-custom {
@@ -230,7 +232,7 @@
         <!-- MODAL POP-UP (Hanya dirender sekali per item) -->
         {% for jenjang, daftar_rpp in riwayat_per_kelas.items() %}
             {% for item in daftar_rpp %}
-            <div class="modal fade" id="modalRPP-{{ item.id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal fade" id="modalRPP-{{ item.id }}" tabindex="-1" aria-hidden="true" data-doc-id="{{ item.id | e }}">
                 <div class="modal-dialog modal-xl modal-dialog-scrollable">
                     <div class="modal-content">
                         <div class="modal-header bg-primary text-white">
@@ -238,13 +240,7 @@
                             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body bg-white p-4">
-                            <div id="content-{{ item.id }}" class="markdown-body"></div>
-                            <script>
-                                document.addEventListener("DOMContentLoaded", function() {
-                                    var rawMarkdown = {{ item.hasil_markdown | tojson }};
-                                    document.getElementById("content-{{ item.id }}").innerHTML = marked.parse(rawMarkdown || "");
-                                });
-                            </script>
+                            <div id="content-{{ item.id | e }}" class="markdown-body"></div>
                         </div>
                         <div class="modal-footer bg-light">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
@@ -263,5 +259,31 @@
 
     <!-- Bootstrap JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Render Markdown saat modal terbuka (lebih andal dari DOMContentLoaded) -->
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // Array JSON dirender Jinja (paling aman untuk semua karakter doc ID / markdown)
+        var rawMarkdownList = [
+            {% for jenjang, daftar_rpp in riwayat_per_kelas.items() %}
+                {% for item in daftar_rpp %}
+                { id: {{ item.id | tojson }}, markdown: {{ item.hasil_markdown | tojson }} }{% if not loop.last %},{% endif %}
+                {% endfor %}
+            {% endfor %}
+        ];
+        var rawMarkdownStore = {};
+        rawMarkdownList.forEach(function (entry) { rawMarkdownStore[entry.id] = entry.markdown; });
+
+        document.querySelectorAll(".modal[data-doc-id]").forEach(function (modal) {
+            modal.addEventListener("shown.bs.modal", function () {
+                var docId = modal.dataset.docId;
+                var el = document.getElementById("content-" + docId);
+                if (!el) return;
+                var raw = rawMarkdownStore[docId] || "";
+                el.innerHTML = DOMPurify.sanitize(marked.parse(raw));
+            });
+        });
+    });
+    </script>
 </body>
 </html>

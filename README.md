@@ -1,8 +1,9 @@
 # Admin SDN Sukamahi 03
 
-1. Supabase: jalankan `supabase/schema.sql` di SQL Editor. Untuk fitur terbaru, jalankan juga migrasi yang belum diterapkan dari `supabase/migrations/` sesuai urutan nomornya. Buat akun staf di Authentication > Users, lalu daftarkan:
+1. Supabase: jalankan `supabase/full-setup.sql` di SQL Editor (paling mudah, sudah termasuk policy role), **atau** `supabase/schema.sql` lalu seluruh migrasi di `supabase/migrations/` sesuai urutan nomornya. Buat akun staf di Authentication > Users, lalu daftarkan:
    `insert into staf (user_id) values ('<UID_AKUN_STAF>');`
    Matikan self-signup publik di Authentication > Settings bila tidak perlu.
+   - **Pemisahan role ada di database, bukan hanya UI.** Jalankan `supabase/migrations/012_rls_pisah_role.sql`: baca data = staf aktif (`is_active`), tulis data (guru, mutasi siswa, absensi, tugas, dokumen, arsip) = admin aktif saja. Akun nonaktif kehilangan akses baca/tulis, bukan sekadar menunya disembunyikan.
    - Kata sandi disimpan dan di-hash oleh Supabase Auth (server side). Buat kata sandi kuat saat membuat akun.
    - Pembatasan percobaan masuk: WAJIB atur Auth > Rate Limits di dashboard Supabase (turunkan batas `token refresh` dan `sign in`), dan aktifkan CAPTCHA/MFA bila tersedia. Pengunci sementara di aplikasi hanya pelengkap UI dan bisa dihapus penyerang lewat console browser.
 2. Isi `js/config.js` (URL, anon key, MUTASI_URL).

@@ -46,6 +46,11 @@ Deno.serve(async (req) => {
     { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } });
   const { data: { user } } = await sbAuth.auth.getUser();
   if (!user) return Response.json({ error: 'Belum login' }, { status: 401, headers });
+  // Hanya staf terdaftar yang boleh memakai agen (RLS "staf baca sendiri").
+  // Tanpa ini, akun Supabase yang belum diaktifkan admin tetap bisa membaca
+  // seluruh data siswa/guru lewat service_role di bawah.
+  const { data: staf } = await sbAuth.from('staf').select('user_id').eq('user_id', user.id).maybeSingle();
+  if (!staf) return Response.json({ error: 'Akun belum terdaftar sebagai staf.' }, { status: 403, headers });
   // Ambil konteks pakai service_role agar tidak terblokir RLS (guru biasa hanya bisa baca jurnal sendiri).
   // Secret tambahan: supabase secrets set SUPABASE_SERVICE_ROLE_KEY=...
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -97,9 +102,10 @@ Deno.serve(async (req) => {
   // ponytail: tanpa tabel kalender di DB; tambah query + baris konteks saat tabel kalender ada.
 
   const model = Deno.env.get('AI_MODEL') ?? 'gemini-3.6-flash';
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${Deno.env.get('GEMINI_API_KEY')!}`, {
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    // Kirim API key lewat header, bukan query string (?key=... bisa bocor ke log akses).
+    headers: { 'content-type': 'application/json', 'x-goog-api-key': Deno.env.get('GEMINI_API_KEY')! },
     body: JSON.stringify({
       system_instruction: { parts: [{ text: `${SYSTEM_PROMPT}\n\n${konteks}` }] },
       contents: (messages ?? []).slice(-20).map((m: any) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),

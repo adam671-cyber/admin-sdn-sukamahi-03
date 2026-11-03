@@ -103,23 +103,21 @@ create or replace function public.is_staf() returns boolean language sql stable 
   select exists (select 1 from public.staf where user_id = auth.uid());
 $$;
 grant execute on function public.is_staf() to authenticated;
+-- PENTING: policy akses data inti TIDAK lagi memakai is_staf() untuk ALL.
+-- is_staf() hanya mengecek keanggotaan tabel staf, tanpa melihat role maupun
+-- profiles.is_active — akibatnya guru/pegawai bisa mengubah/menghapus data
+-- sekolah dan akun nonaktif tetap punya akses penuh.
+-- Policy yang benar (baca = staf aktif, tulis = admin aktif) dibuat di bagian
+-- "2c" di bawah, setelah fungsi is_admin()/am_active() didefinisikan.
 drop policy if exists "staf tugas" on tugas;
 drop policy if exists "staf guru" on guru;
 drop policy if exists "staf dokumen_guru" on dokumen_guru;
 drop policy if exists "staf mutasi_masuk" on mutasi_masuk;
 drop policy if exists "staf mutasi_keluar" on mutasi_keluar;
 drop policy if exists "staf absensi" on absensi;
-create policy "staf tugas" on tugas for all to authenticated using (public.is_staf()) with check (public.is_staf());
-create policy "staf guru" on guru for all to authenticated using (public.is_staf()) with check (public.is_staf());
-create policy "staf dokumen_guru" on dokumen_guru for all to authenticated using (public.is_staf()) with check (public.is_staf());
-create policy "staf mutasi_masuk" on mutasi_masuk for all to authenticated using (public.is_staf()) with check (public.is_staf());
-create policy "staf mutasi_keluar" on mutasi_keluar for all to authenticated using (public.is_staf()) with check (public.is_staf());
-create policy "staf absensi" on absensi for all to authenticated using (public.is_staf()) with check (public.is_staf());
--- Storage RLS dokumen-guru: hanya staf terdaftar (ponytail: semua staf bisa baca semua berkas; naik ke path-per-guru bila perlu)
 drop policy if exists "staf baca dokumen" on storage.objects;
-create policy "staf baca dokumen" on storage.objects for select to authenticated using (bucket_id = 'dokumen-guru' and public.is_staf());
 drop policy if exists "staf tulis dokumen" on storage.objects;
-create policy "staf tulis dokumen" on storage.objects for all to authenticated using (bucket_id = 'dokumen-guru' and public.is_staf()) with check (bucket_id = 'dokumen-guru' and public.is_staf());
+drop policy if exists "staf tulis ttd" on storage.objects;
 
 -- ===== PROFILES + JURNAL HARIAN (lihat supabase/migrations/002_jurnal_harian.sql) =====
 create table if not exists public.profiles (
@@ -162,10 +160,42 @@ drop policy if exists "profiles_select_admin" on public.profiles;
 create policy "profiles_select_admin" on public.profiles for select to authenticated using (public.is_admin());
 drop policy if exists "profiles_update_admin" on public.profiles;
 create policy "profiles_update_admin" on public.profiles for update to authenticated using (public.is_admin()) with check (public.is_admin());
+
+-- ---------------------------------------------------------------------------
+-- 2c. POLICY DATA INTI: baca = staf aktif, tulis = admin aktif.
+-- (Menggantikan policy "staf <tabel>" versi lama yang memberi ALL ke semua staf.)
+-- ---------------------------------------------------------------------------
+drop policy if exists "guru baca aktif" on public.guru;
+drop policy if exists "guru admin tulis" on public.guru;
+drop policy if exists "tugas admin" on public.tugas;
+drop policy if exists "dokumen_guru admin" on public.dokumen_guru;
+drop policy if exists "mutasi_masuk admin" on public.mutasi_masuk;
+drop policy if exists "mutasi_keluar admin" on public.mutasi_keluar;
+drop policy if exists "absensi admin" on public.absensi;
+drop policy if exists "dokumen admin baca" on storage.objects;
+drop policy if exists "dokumen admin tulis" on storage.objects;
+drop policy if exists "ttd admin tulis" on storage.objects;
+
+-- Data guru: staf aktif boleh baca (kop & TTD jurnal), tulis hanya admin.
+create policy "guru baca aktif" on public.guru for select to authenticated using (public.am_active());
+create policy "guru admin tulis" on public.guru for all to authenticated using (public.is_admin()) with check (public.is_admin());
+create policy "tugas admin" on public.tugas for all to authenticated using (public.is_admin()) with check (public.is_admin());
+create policy "dokumen_guru admin" on public.dokumen_guru for all to authenticated using (public.is_admin()) with check (public.is_admin());
+create policy "mutasi_masuk admin" on public.mutasi_masuk for all to authenticated using (public.is_admin()) with check (public.is_admin());
+create policy "mutasi_keluar admin" on public.mutasi_keluar for all to authenticated using (public.is_admin()) with check (public.is_admin());
+create policy "absensi admin" on public.absensi for all to authenticated using (public.is_admin()) with check (public.is_admin());
+create policy "dokumen admin baca" on storage.objects for select to authenticated using (bucket_id = 'dokumen-guru' and public.is_admin());
+create policy "dokumen admin tulis" on storage.objects for all to authenticated using (bucket_id = 'dokumen-guru' and public.is_admin()) with check (bucket_id = 'dokumen-guru' and public.is_admin());
+-- ttd-guru: baca untuk staf aktif (lihat 006), tulis hanya admin.
+create policy "ttd admin tulis" on storage.objects for all to authenticated using (bucket_id = 'ttd-guru' and public.is_admin()) with check (bucket_id = 'ttd-guru' and public.is_admin());
+
+-- Backfill admin awal: HANYA bila profil belum ada. Jangan promote ulang saat
+-- file ini dijalankan ulang, supaya role yang sudah diatur di menu Pengguna
+-- tidak tertimpa menjadi admin.
 insert into public.profiles (id, email, nama, role, is_active)
 select u.id, u.email, coalesce(u.raw_user_meta_data->>'nama', u.email), 'admin', true
 from auth.users u where exists (select 1 from public.staf s where s.user_id = u.id)
-on conflict (id) do update set role = 'admin', is_active = true;
+on conflict (id) do nothing;
 create table if not exists public.jurnal_harian (
   id bigint generated always as identity primary key,
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -200,18 +230,32 @@ drop trigger if exists trg_profiles_wajib_taut on public.profiles;
 create trigger trg_profiles_wajib_taut before insert or update of role, is_active, guru_id on public.profiles for each row execute function public.wajib_taut_pegawai();
 drop policy if exists "jurnal_admin_all" on public.jurnal_harian;
 create policy "jurnal_admin_all" on public.jurnal_harian for all to authenticated using (public.is_admin()) with check (public.is_admin());
-drop policy if exists "guru baca aktif" on public.guru;
-create policy "guru baca aktif" on public.guru for select to authenticated using (public.am_active());
+-- ("guru baca aktif" sudah dibuat di bagian 2c — jangan dibuat ulang di sini.)
 insert into storage.buckets (id, name, public) values ('bukti-jurnal','bukti-jurnal', false) on conflict (id) do nothing;
 update storage.buckets set file_size_limit = 7340032,
   allowed_mime_types = array['application/pdf','image/jpeg','image/png'] where id = 'bukti-jurnal';
+-- Bukti jurnal: hanya pemilik folder (user_id) + admin (sama seperti migrasi 011).
 drop policy if exists "staf baca bukti" on storage.objects;
-create policy "staf baca bukti" on storage.objects for select to authenticated using (bucket_id = 'bukti-jurnal' and public.am_active());
 drop policy if exists "staf tulis bukti" on storage.objects;
-create policy "staf tulis bukti" on storage.objects for all to authenticated using (bucket_id = 'bukti-jurnal' and public.am_active()) with check (bucket_id = 'bukti-jurnal' and public.am_active());
--- CATATAN: policy di atas adalah versi awal (semua staf bisa baca semua bukti).
--- Jalankan migrasi 011_bukti_jurnal_per_user.sql untuk membatasi akses
--- ke folder milik masing-masing pengguna (admin tetap bisa baca semua).
+drop policy if exists "bukti baca pemilik" on storage.objects;
+drop policy if exists "bukti tulis pemilik" on storage.objects;
+create policy "bukti baca pemilik" on storage.objects for select to authenticated
+using (
+  bucket_id = 'bukti-jurnal'
+  and public.am_active()
+  and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin())
+);
+create policy "bukti tulis pemilik" on storage.objects for all to authenticated
+using (
+  bucket_id = 'bukti-jurnal'
+  and public.am_active()
+  and (storage.foldername(name))[1] = auth.uid()::text
+)
+with check (
+  bucket_id = 'bukti-jurnal'
+  and public.am_active()
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
 -- ===== ARSIP BERKAS SEKOLAH (per tahun) =====
 create table if not exists public.arsip (
   id bigint generated always as identity primary key,

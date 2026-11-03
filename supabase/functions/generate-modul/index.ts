@@ -56,7 +56,11 @@ async function terautorisasi(req: Request): Promise<boolean> {
       { global: { headers: { Authorization: `Bearer ${bearer}` } } },
     );
     const { data: { user } } = await sbAuth.auth.getUser();
-    if (user) return true;
+    if (!user) return false;
+    // Hanya staf terdaftar yang boleh memakai kuota Gemini lewat jalur JWT —
+    // tanpa ini akun apa pun yang login bisa menguras kuota/biaya API.
+    const { data: staf } = await sbAuth.from('staf').select('user_id').eq('user_id', user.id).maybeSingle();
+    return !!staf;
   }
   return false;
 }

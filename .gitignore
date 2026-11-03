@@ -9,6 +9,8 @@ supabase/.temp/
 serviceAccountKey.json
 *firebase-adminsdk*.json
 *.pem
+# Kunci service account Firebase (file yang di-download dari GCP Console)
+*portal-pembelajaran*.json
 
 # Output Vercel CLI lokal
 .vercel/

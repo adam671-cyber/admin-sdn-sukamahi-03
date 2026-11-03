@@ -3,11 +3,13 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import secrets
 import sys
 import time
 from datetime import datetime
 from functools import wraps
+from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
 from flask import (
@@ -144,13 +146,195 @@ if not firebase_admin._apps:
 # Atribut Partitioned (CHIPS) agar kuki tetap sampai di dalam iframe admin
 # pada Chrome/Edge/Firefox. Safari/iOS tidak mendukung CHIPS → halaman login
 # menampilkan tombol "Buka di tab baru" sebagai jalan keluar.
+#
+# Alur SSO:
+#   1. Aplikasi admin membuka iframe ke /sso#token=<access_token Supabase>
+#      (token di fragment URL → tidak ikut ke log server).
+#   2. Halaman /sso (tanpa auth) membaca fragment, lalu POST token ke /sso.
+#   3. Server memverifikasi token ke Supabase Auth + memastikan user terdaftar
+#      di tabel staf (RLS "staf baca sendiri"), lalu menyetel kuki sesi HMAC.
+#   4. Semua route lain dilindungi decorator @wajib_login.
+
+PORTAL_SESI_NAMA = "sesi_portal"
+PORTAL_SESI_UMUR = 8 * 3600  # 8 jam
+ASAL_ADMIN = [
+    "admin-sdn-sukamahi-03.vercel.app",
+    "admin-sdn-sukamahi-03-bdlh.vercel.app",
+]
+
+HALAMAN_SSO = """<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Menyiapkan sesi portal&hellip;</title>
+<style>
+  body { font-family: system-ui, sans-serif; display: grid; place-items: center;
+         min-height: 100vh; margin: 0; color: #1f2937; background: #f8fafc; }
+  main { text-align: center; padding: 2rem; max-width: 24rem; }
+  h1 { font-size: 1.1rem; } p { color: #6b7280; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Menyiapkan sesi portal&hellip;</h1>
+  <p id="pesan">Mohon tunggu sebentar.</p>
+</main>
+<script>
+(function () {
+  var pesan = document.getElementById('pesan');
+  var token = '';
+  try {
+    var cocok = location.hash.match(/token=([^&]+)/);
+    token = cocok ? decodeURIComponent(cocok[1]) : '';
+    location.hash = '';
+  } catch (e) { /* abaikan */ }
+  if (!token) {
+    pesan.textContent = 'Sesi tidak ditemukan. Buka portal ini dari aplikasi admin (menu Portal).';
+    return;
+  }
+  fetch('/sso', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify({ token: token })
+  })
+    .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+    .then(function (h) {
+      if (h.ok) { location.replace('/dashboard'); }
+      else { pesan.textContent = (h.j && h.j.pesan) || 'Gagal menyiapkan sesi.'; }
+    })
+    .catch(function () { pesan.textContent = 'Gagal menghubungi server portal. Coba muat ulang.'; });
+})();
+</script>
+</body>
+</html>"""
+
+
+def _tandatangan(muatan: str) -> str:
+    return hmac.new(flask_secret_key.encode(), muatan.encode(), hashlib.sha256).hexdigest()
+
+
+def buat_cookie_sesi(uid: str, email: str) -> str:
+    kedaluwarsa = int(time.time()) + PORTAL_SESI_UMUR
+    muatan = f"{uid}|{kedaluwarsa}|{email}"
+    return f"{muatan}|{_tandatangan(muatan)}"
+
+
+def baca_sesi():
+    nilai = request.cookies.get(PORTAL_SESI_NAMA, "")
+    if not nilai:
+        return None
+    bagian = nilai.split("|")
+    if len(bagian) != 4:
+        return None
+    uid, exp_str, email, tanda = bagian
+    if not exp_str.isdigit() or int(exp_str) < int(time.time()):
+        return None
+    if not secrets.compare_digest(_tandatangan(f"{uid}|{exp_str}|{email}"), tanda):
+        return None
+    return {"uid": uid, "email": email}
+
+
+def wajib_login(view):
+    @wraps(view)
+    def dibungkus(*args, **kwargs):
+        sesi = baca_sesi()
+        if not sesi:
+            return redirect(url_for("sso"))
+        g.sesi = sesi
+        return view(*args, **kwargs)
+    return dibungkus
+
+
+@app.before_request
+def cek_asal_post():
+    """Proteksi CSRF: permintaan pengubah data wajib berasal dari asal tepercaya."""
+    if request.method not in ("POST", "PUT", "PATCH", "DELETE"):
+        return None
+    asal = request.headers.get("Origin") or request.headers.get("Referer")
+    if not asal:
+        return Response("Permintaan ditolak: asal permintaan tidak diketahui.", 403)
+    try:
+        host = urlsplit(asal).netloc.lower()
+    except ValueError:
+        return Response("Permintaan ditolak: asal permintaan tidak valid.", 403)
+    diizinkan = {request.host.lower(), *ASAL_ADMIN}
+    if not os.getenv("VERCEL"):
+        # Pengembangan lokal: admin bisa jalan di port mana pun.
+        if host.startswith("localhost:") or host.startswith("127.0.0.1:"):
+            return None
+    if host not in diizinkan:
+        return Response("Permintaan ditolak: asal tidak diizinkan.", 403)
+    return None
+
+
 @app.context_processor
 def injeksi_sesi():
-    return {"sesi": {}}
+    return {"sesi": getattr(g, "sesi", None) or {}}
+
+
+@app.route("/sso", methods=["GET", "POST"])
+def sso():
+    if request.method == "POST":
+        data = request.get_json(silent=True) or {}
+        token = str(data.get("token", "")).strip()
+        if not token or not SUPABASE_URL or not SUPABASE_ANON_KEY:
+            return Response(
+                json.dumps({"ok": False, "pesan": "Sesi tidak valid atau konfigurasi portal belum lengkap."}),
+                mimetype="application/json", status=400)
+
+        try:
+            cek = requests.get(
+                f"{SUPABASE_URL}/auth/v1/user",
+                headers={"Authorization": f"Bearer {token}", "apikey": SUPABASE_ANON_KEY},
+                timeout=15,
+            )
+            user = cek.json() if cek.ok else {}
+            uid = str(user.get("id", "")) if isinstance(user, dict) else ""
+            email = str(user.get("email", "")) if isinstance(user, dict) else ""
+            if not cek.ok or not uid:
+                return Response(
+                    json.dumps({"ok": False, "pesan": "Sesi tidak valid. Muat ulang portal dari aplikasi admin."}),
+                    mimetype="application/json", status=401)
+
+            # Pastikan user terdaftar sebagai staf (RLS: staf hanya bisa baca barisnya sendiri).
+            cek_staf = requests.get(
+                f"{SUPABASE_URL}/rest/v1/staf",
+                params={"user_id": f"eq.{uid}", "select": "user_id"},
+                headers={"Authorization": f"Bearer {token}", "apikey": SUPABASE_ANON_KEY},
+                timeout=15,
+            )
+            baris = cek_staf.json() if cek_staf.ok else []
+            if not isinstance(baris, list) or not baris:
+                return Response(
+                    json.dumps({"ok": False, "pesan": "Akun belum terdaftar sebagai staf sekolah."}),
+                    mimetype="application/json", status=403)
+        except (requests.RequestException, ValueError):
+            return Response(
+                json.dumps({"ok": False, "pesan": "Gagal menghubungi layanan autentikasi. Coba lagi."}),
+                mimetype="application/json", status=502)
+
+        produksi = bool(os.getenv("VERCEL"))
+        respons = Response(json.dumps({"ok": True}), mimetype="application/json", status=200)
+        argumen_kuki = dict(
+            max_age=PORTAL_SESI_UMUR, httponly=True, path="/",
+            samesite="None" if produksi else "Lax", secure=produksi,
+        )
+        try:
+            # CHIPS: kuki terpartisi agar tersimpan dalam konteks iframe pihak ketiga.
+            respons.set_cookie(PORTAL_SESI_NAMA, buat_cookie_sesi(uid, email), partitioned=True, **argumen_kuki)
+        except TypeError:
+            respons.set_cookie(PORTAL_SESI_NAMA, buat_cookie_sesi(uid, email), **argumen_kuki)
+        return respons
+
+    # GET: halaman penukar token fragment -> kuki sesi.
+    return HALAMAN_SSO
 
 
 @app.route('/', methods=['GET', 'POST'])
 @app.route('/dashboard', methods=['GET', 'POST'])
+@wajib_login
 def dashboard():
     hasil = None
     form_data = {}
@@ -296,6 +480,7 @@ Format Output yang Diinginkan:
 # 9. ROUTE: KURIKULUM
 # ==========================================
 @app.route('/kurikulum', methods=['GET', 'POST'])
+@wajib_login
 def kurikulum():
     hasil = None
     form_data = {}
@@ -376,6 +561,7 @@ def kurikulum():
 # 10. ROUTE: RIWAYAT & EKSPOR
 # ==========================================
 @app.route('/riwayat')
+@wajib_login
 def riwayat():
     riwayat_per_kelas = {}
     try:
@@ -383,7 +569,7 @@ def riwayat():
         docs = db_firestore.collection('riwayat_rpp').order_by('created_at', direction=firestore.Query.DESCENDING).stream()
         
         for doc in docs:
-            data = doc.to_dict()
+            data = doc.to_dict() or {}
             data['id'] = doc.id
             jenjang = data.get('jenjang', 'Lainnya')
             
@@ -397,6 +583,7 @@ def riwayat():
     return render_template('riwayat.html', riwayat_per_kelas=riwayat_per_kelas)
 
 @app.route('/hapus_riwayat/<id_doc>', methods=['POST'])
+@wajib_login
 def hapus_riwayat(id_doc):
     try:
         db_firestore = firestore.client()
@@ -406,13 +593,22 @@ def hapus_riwayat(id_doc):
     return redirect(url_for('riwayat'))
 
 @app.route('/download_word', methods=['POST'])
+@wajib_login
 def download_word():
     content = request.form.get('content', '')
-    topik = request.form.get('topik', 'RPP')
+    # Sanitasi nama file: hanya huruf/angka/underscore, batasi panjang (anti header injection).
+    topik = re.sub(r'[^A-Za-z0-9_-]+', '_', request.form.get('topik', 'RPP')).strip('_') or 'RPP'
+    topik = topik[:60]
+    if len(content) > 2_000_000:
+        content = content[:2_000_000]
     return Response(
         content,
         mimetype="text/plain",
-        headers={"Content-Disposition": f"attachment;filename=RPP_{topik}.txt"}
+        headers={
+            "Content-Disposition": f"attachment;filename=RPP_{topik}.txt",
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "no-store",
+        }
     )
 
 # ==========================================

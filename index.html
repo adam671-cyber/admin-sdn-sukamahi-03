@@ -8,7 +8,7 @@
                font-src    https://fonts.gstatic.com;
                img-src     'self' data: blob: https://*.supabase.co;
                connect-src 'self' https://*.supabase.co https://date.nager.at https://admin-sdn-sukamahi-03.vercel.app;
-               frame-src   'self' http://localhost:5001 http://127.0.0.1:5001 https://admin-sdn-sukamahi-03-bdlh.vercel.app;">
+               frame-src   'self' http://localhost:5000 http://127.0.0.1:5000 http://localhost:5001 http://127.0.0.1:5001 https://admin-sdn-sukamahi-03-bdlh.vercel.app;">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Dashboard · Admin SDN Sukamahi 03</title>
@@ -702,13 +702,21 @@
     crossorigin="anonymous"></script>
   <script src="js/config.js"></script>
   <script>
-    // Portal: terbuka langsung di iframe (tanpa halaman login/SSO).
+    // Portal: SSO — token sesi Supabase dikirim via fragment URL ke /sso portal,
+    // lalu portal menukarnya dengan kuki sesi HttpOnly bertanda tangan HMAC.
     const portalFrame = document.getElementById('portal-frame');
     const portalNotice = document.getElementById('portal-unconfigured');
     const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-    const portalUrl = isLocal ? 'http://127.0.0.1:5001/' : window.PORTAL_URL;
+    // Port lokal default Flask (lihat blok if __main__ di portal/app.py: PORT=5000)
+    const PORTAL_URL_LOKAL = 'http://127.0.0.1:5000/';
+    const portalUrl = isLocal ? PORTAL_URL_LOKAL : window.PORTAL_URL;
     if (portalUrl) {
-      portalFrame.src = new URL(portalUrl).origin + '/dashboard';
+      const asalPortal = new URL(portalUrl).origin;
+      const sbPortal = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      sbPortal.auth.getSession().then(({ data }) => {
+        const token = data.session ? data.session.access_token : '';
+        portalFrame.src = asalPortal + '/sso' + (token ? '#token=' + encodeURIComponent(token) : '');
+      });
     } else {
       portalNotice.textContent = 'PORTAL_URL belum diatur di js/config.js.';
       portalNotice.classList.remove('hidden');

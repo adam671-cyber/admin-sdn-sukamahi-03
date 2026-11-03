@@ -71,11 +71,13 @@ using (public.is_admin()) with check (public.is_admin());
 
 -- 3. Backfill: pastikan akun staf lama punya profile admin aktif
 -- (ganti email di bawah dengan email admin kamu bila perlu, atau jalankan per-user)
+-- CATATAN KEAMANAN: pakai "do nothing" agar menjalankan ulang file ini TIDAK
+-- menaikkan semua akun staf menjadi admin (itu akan membatalkan pemisahan role).
 insert into public.profiles (id, email, nama, role, is_active)
 select u.id, u.email, coalesce(u.raw_user_meta_data->>'nama', u.email), 'admin', true
 from auth.users u
 where exists (select 1 from public.staf s where s.user_id = u.id)
-on conflict (id) do update set role = 'admin', is_active = true;
+on conflict (id) do nothing;
 
 -- 4. Tabel jurnal_harian
 create table if not exists public.jurnal_harian (
