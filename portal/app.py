@@ -1,4 +1,3 @@
-import base64
 import hashlib
 import hmac
 import json
@@ -83,36 +82,40 @@ app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
 
-def call_gemini_via_supabase(prompt, model="gemini-3.8-flash", temperature=0.7, max_output_tokens=8192):
-    """Panggil Gemini melalui Supabase Edge Function untuk keamanan."""
+def _post_edge(payload, timeout=240):
     if not SUPABASE_URL or not SUPABASE_ANON_KEY:
         raise RuntimeError("SUPABASE_URL dan SUPABASE_ANON_KEY harus dikonfigurasi di environment variable.")
-    
     response = requests.post(
         f"{SUPABASE_URL}/functions/v1/generate-modul",
         headers={
-            "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+            "Authorization": "Bearer " + SUPABASE_ANON_KEY,
             "Content-Type": "application/json",
             # Rahasia bersama Flask <-> Edge Function (env PORTAL_SECRET di kedua sisi)
             "X-Portal-Key": os.getenv("PORTAL_SECRET", ""),
         },
-        json={
-            "prompt": prompt,
-            "model": model,
-            "temperature": temperature,
-            "maxOutputTokens": max_output_tokens
-        },
-        timeout=240
+        json=payload,
+        timeout=timeout
     )
-    
     if not response.ok:
         raise RuntimeError(f"Edge Function error: {response.status_code} - {response.text}")
-    
     data = response.json()
     if 'error' in data:
         raise RuntimeError(f"Gemini error: {data['error']}")
-    
-    return data.get('text', '')
+    return data
+
+def call_gemini_via_supabase(prompt, model="gemini-3.7-flash", temperature=0.7, max_output_tokens=8192):
+    """Panggil Gemini melalui Supabase Edge Function untuk keamanan."""
+    return _post_edge({
+        "prompt": prompt,
+        "model": model,
+        "temperature": temperature,
+        "maxOutputTokens": max_output_tokens
+    }).get('text', '')
+
+def generate_gambar_via_supabase(prompt, model="gemini-3.7-flash"):
+    """Generate gambar; mengembalikan list data URI (base64)."""
+    data = _post_edge({"prompt": prompt, "model": model, "generateImage": True}, timeout=60)
+    return [f"data:{im.get('mimeType', 'image/png')};base64,{im['data']}" for im in data.get('images', [])]
 
 # ==========================================
 # 4. INISIALISASI FIREBASE CLOUD FIRESTORE
@@ -463,24 +466,40 @@ Format Output yang Diinginkan:
 
         # Minta Respon dari Gemini AI (via Supabase Edge Function)
         try:
-            gemini_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+            gemini_model = os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
             
             # Langkah 1: Dapatkan teks dari Gemini melalui Supabase Edge Function
             hasil = call_gemini_via_supabase(prompt, gemini_model, 0.7, 8192)
-            
+
+            # Langkah 2: Generate gambar ilustrasi (gagal tidak membatalkan teks)
+            try:
+                prompt_gambar = (
+                    f"Buat satu gambar ilustrasi edukatif, berwarna, ramah anak SD, tanpa teks, "
+                    f"untuk materi '{topik}' pelajaran {mapel}. {catatan_opsional}"
+                )
+                gambar_urls = generate_gambar_via_supabase(
+                    prompt_gambar, os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image"))
+            except Exception as err_img:
+                import traceback
+                traceback.print_exc()
+                print(f"Gagal generate gambar: {err_img}")
+
             # Simpan Otomatis ke Cloud Firestore (Khusus RPP)
             if jenis_output not in ['Soal Pilihan Ganda (HOTS & LOTS)', 'pg', 'Soal Uraian / Esai', 'esai']:
                 try:
+                    user_uid = g.sesi.get('uid', '') if hasattr(g, 'sesi') and g.sesi else ''
+                    user_email = g.sesi.get('email', '') if hasattr(g, 'sesi') and g.sesi else ''
                     db_firestore = firestore.client()
                     db_firestore.collection('riwayat_rpp').add({
-                        'username': 'Admin',
+                        'user_id': user_uid,
+                        'username': user_email or 'Pengguna',
                         'mapel': mapel,
                         'jenjang': jenjang,
                         'topik': topik,
                         'jenis_output': jenis_output,
                         'template_type': template_type,
                         'hasil_markdown': hasil,
-                        'gambar_urls': gambar_urls,
+                        'gambar_urls': [],
                         'created_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     })
                 except Exception as err_db:
@@ -551,13 +570,16 @@ def kurikulum():
         )
 
         try:
-            gemini_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+            gemini_model = os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
             hasil = call_gemini_via_supabase(prompt, gemini_model, 0.7, 8192)
 
             try:
+                user_uid = g.sesi.get('uid', '') if hasattr(g, 'sesi') and g.sesi else ''
+                user_email = g.sesi.get('email', '') if hasattr(g, 'sesi') and g.sesi else ''
                 db_firestore = firestore.client()
                 db_firestore.collection('riwayat_rpp').add({
-                    'username': 'Admin',
+                    'user_id': user_uid,
+                    'username': user_email or 'Pengguna',
                     'mapel': mapel,
                     'jenjang': jenjang,
                     'topik': topik,
@@ -603,7 +625,20 @@ def riwayat():
 def hapus_riwayat(id_doc):
     try:
         db_firestore = firestore.client()
-        db_firestore.collection('riwayat_rpp').document(id_doc).delete()
+        doc_ref = db_firestore.collection('riwayat_rpp').document(id_doc)
+        doc = doc_ref.get()
+        if not doc.exists:
+            return redirect(url_for('riwayat'))
+
+        data = doc.to_dict() or {}
+        user_uid = g.sesi.get('uid') if hasattr(g, 'sesi') and g.sesi else None
+        user_role = g.sesi.get('role') if hasattr(g, 'sesi') and g.sesi else None
+
+        # Otorisasi ketat: hanya Admin atau pemilik dokumen yang berhak menghapus
+        if user_role == 'admin' or (user_uid and data.get('user_id') == user_uid):
+            doc_ref.delete()
+        else:
+            print(f"Otorisasi ditolak: User {user_uid} (role: {user_role}) mencoba menghapus dokumen {id_doc} milik {data.get('user_id')}")
     except Exception as e:
         print(f"Gagal menghapus riwayat: {e}")
     return redirect(url_for('riwayat'))

@@ -714,17 +714,27 @@
     // DILOMOPkan browser → GET /dashboard 302 balik ke /sso → "Sesi tidak ditemukan".
     const PORTAL_URL_LOKAL = 'http://' + window.location.hostname + ':5000/';
     const portalUrl = isLocal ? PORTAL_URL_LOKAL : window.PORTAL_URL;
-    if (portalUrl) {
+
+    function muatPortalIframe() {
+      if (!portalUrl) {
+        portalNotice.textContent = 'PORTAL_URL belum diatur di js/config.js.';
+        portalNotice.classList.remove('hidden');
+        return;
+      }
+      if (portalFrame.getAttribute('data-loaded')) return;
+      portalFrame.setAttribute('data-loaded', 'true');
       const asalPortal = new URL(portalUrl).origin;
       const sbPortal = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       sbPortal.auth.getSession().then(({ data }) => {
         const token = data.session ? data.session.access_token : '';
         portalFrame.src = asalPortal + '/sso' + (token ? '#token=' + encodeURIComponent(token) : '');
       });
-    } else {
-      portalNotice.textContent = 'PORTAL_URL belum diatur di js/config.js.';
-      portalNotice.classList.remove('hidden');
     }
+    window.muatPortalIframe = muatPortalIframe;
+    if (location.hash === '#portal') muatPortalIframe();
+    addEventListener('hashchange', () => {
+      if (location.hash === '#portal') muatPortalIframe();
+    });
   </script>
   <script src="js/app.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"

@@ -221,6 +221,7 @@ function route() {
     semua.forEach((n) => { const el = $('#view-' + n); if (el) el.classList.toggle('hidden', n !== h); });
     document.querySelectorAll('[data-nav]').forEach((x) => { x.dataset.active = x.dataset.nav === h; });
     if (h === 'jurnal' && typeof muatJurnal === 'function') muatJurnal();
+    if (h === 'portal' && typeof window.muatPortalIframe === 'function') window.muatPortalIframe();
     return;
   }
   const v = semua.includes(h) ? h : 'dashboard';
@@ -230,6 +231,7 @@ function route() {
   if (v === 'absensi' && typeof muatAbsensi === 'function') muatAbsensi();
   if (v === 'arsip' && typeof muatArsip === 'function') muatArsip();
   if (v === 'jurnal' && typeof muatJurnal === 'function') muatJurnal();
+  if (v === 'portal' && typeof window.muatPortalIframe === 'function') window.muatPortalIframe();
   if (v === 'pengguna' && typeof muatPengguna === 'function') muatPengguna();
   document.querySelectorAll('[data-nav]').forEach((x) => { x.dataset.active = x.dataset.nav === v; });
   const dalamGrupGuru = v === 'guru' || v === 'berkas';

@@ -135,7 +135,7 @@ drop policy if exists "profiles_select_own" on public.profiles;
 create policy "profiles_select_own" on public.profiles for select to authenticated using (auth.uid() = id);
 -- Policy admin menyusul di bawah (pakai fungsi security definer, anti-rekursi).
 create or replace function public.handle_new_user()
-returns trigger language plpgsql security definer as $$
+returns trigger language plpgsql security definer set search_path = public as $$
 begin
   insert into public.profiles (id, email, nama, role, is_active)
   values (new.id, new.email, coalesce(new.raw_user_meta_data->>'nama', new.email), 'guru', false)

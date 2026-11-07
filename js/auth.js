@@ -89,6 +89,11 @@ document.getElementById('form-login').addEventListener('submit', async (e) => {
   const { error } = await sb.auth.signInWithPassword({ email, password });
   if (error) {
     console.error(error);
+    if (error.status === 429 || String(error.message || '').toLowerCase().includes('rate limit')) {
+      err.textContent = 'Terlalu banyak permintaan ke server autentikasi (Rate Limit). Silakan tunggu beberapa menit sebelum mencoba kembali.';
+      err.classList.remove('hidden');
+      return;
+    }
     const hasil = catatGagal(email);
     if (hasil.terkunci) {
       err.textContent = 'Terlalu banyak percobaan gagal. Akun dikunci sementara selama ' + KUNCI_LOCK_MENIT + ' menit.';

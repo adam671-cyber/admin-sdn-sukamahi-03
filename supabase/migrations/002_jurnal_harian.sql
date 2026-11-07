@@ -25,7 +25,7 @@ drop policy if exists "profiles_update_admin" on public.profiles;
 -- Policy admin yang aman (pakai fungsi security definer) dibuat di bagian 2b.
 
 create or replace function public.handle_new_user()
-returns trigger language plpgsql security definer as $$
+returns trigger language plpgsql security definer set search_path = public as $$
 begin
   insert into public.profiles (id, email, nama, role, is_active)
   values (new.id, new.email, coalesce(new.raw_user_meta_data->>'nama', new.email), 'guru', false)

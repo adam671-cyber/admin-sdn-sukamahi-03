@@ -16,13 +16,19 @@ const ORIGIN_DIIZINKAN = [
   'http://localhost:3000',
   'http://127.0.0.1:5173',
   'http://127.0.0.1:3000',
+  'http://localhost:5000',
+  'http://127.0.0.1:5000',
+  'https://admin-sdn-sukamahi-03.vercel.app',
+  'https://admin-sdn-sukamahi-03-bdlh.vercel.app',
 ];
 
 function cors(req: Request): Record<string, string> {
   const origin = req.headers.get('Origin') ?? '';
-  const izinkan = ORIGIN_DIIZINKAN.includes(origin) ? origin : ORIGIN_DIIZINKAN[0];
+  if (!ORIGIN_DIIZINKAN.includes(origin)) {
+    return { 'Vary': 'Origin' };
+  }
   return {
-    'Access-Control-Allow-Origin': izinkan,
+    'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Headers': 'authorization, apikey, content-type',
     'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
     'Vary': 'Origin',

@@ -1,12 +1,23 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const cors = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info, x-supabase-api-version',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
-function reply(body: Record<string, unknown>, status = 200): Response {
-  return Response.json(body, { status, headers: cors });
+const ORIGIN_DIIZINKAN = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:3000',
+  'https://admin-sdn-sukamahi-03.vercel.app',
+  'https://admin-sdn-sukamahi-03-bdlh.vercel.app',
+];
+
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get('Origin') ?? '';
+  const allowOrigin = ORIGIN_DIIZINKAN.includes(origin) ? origin : ORIGIN_DIIZINKAN[0];
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info, x-supabase-api-version',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Vary': 'Origin',
+  };
 }
 
 function waitUntil(isoTime: string): Promise<void> {
@@ -21,7 +32,9 @@ async function cacheKey(lat: number, lon: number): Promise<string> {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
+  const corsHeaders = getCorsHeaders(req);
+  const reply = (body: Record<string, unknown>, status = 200) => Response.json(body, { status, headers: corsHeaders });
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return reply({ error: 'Metode tidak didukung.' }, 405);
 
   const authorization = req.headers.get('Authorization') ?? '';

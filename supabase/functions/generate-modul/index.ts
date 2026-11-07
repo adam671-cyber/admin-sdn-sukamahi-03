@@ -1,5 +1,5 @@
 // Deploy: supabase functions deploy generate-modul
-// Secrets: supabase secrets set GEMINI_API_KEY=... AI_MODEL=gemini-3.8-flash
+// Secrets: supabase secrets set GEMINI_API_KEY=... AI_MODEL=gemini-3.7-flash
 //          supabase secrets set PORTAL_SECRET=<sama dengan env PORTAL_SECRET di Flask>
 // Edge Function untuk generate modul/RPP - dipanggil oleh Python Flask (Vercel)
 // Autentikasi: menerima (1) JWT user Supabase yang valid, atau (2) header
@@ -80,7 +80,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const body = await req.json();
-    const { prompt, model, temperature, maxOutputTokens } = body;
+    const { prompt, model, temperature, maxOutputTokens, generateImage } = body;
 
     if (!prompt) {
       return Response.json({ error: 'Prompt diperlukan' }, { status: 400, headers });
@@ -91,7 +91,7 @@ Deno.serve(async (req: Request) => {
       return Response.json({ error: 'GEMINI_API_KEY tidak dikonfigurasi di Supabase Secrets' }, { status: 500, headers });
     }
 
-    const geminiModel = model || Deno.env.get('AI_MODEL') || 'gemini-3.8-flash';
+    const geminiModel = model || Deno.env.get('AI_MODEL') || 'gemini-3.7-flash';
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`;
 
     const response = await fetch(geminiUrl, {
@@ -108,6 +108,7 @@ Deno.serve(async (req: Request) => {
         generationConfig: {
           temperature: temperature ?? 0.7,
           maxOutputTokens: maxOutputTokens ?? 8192,
+          ...(generateImage ? { responseModalities: ['TEXT', 'IMAGE'] } : {}),
         }
       })
     });
@@ -122,7 +123,24 @@ Deno.serve(async (req: Request) => {
     }
 
     const candidate = data.candidates?.[0];
-    const text = candidate?.content?.parts?.[0]?.text || '';
+    const parts = candidate?.content?.parts ?? [];
+
+    if (generateImage) {
+      const images = parts
+        .filter((p: any) => (p.inlineData ?? p.inline_data)?.data)
+        .map((p: any) => {
+          const d = p.inlineData ?? p.inline_data;
+          return { mimeType: d.mimeType ?? d.mime_type ?? 'image/png', data: d.data };
+        });
+      if (images.length === 0) {
+        return Response.json({
+          error: `Model ${geminiModel} tidak mengembalikan gambar (${candidate?.finishReason ?? 'kosong'})`,
+        }, { status: 502, headers });
+      }
+      return Response.json({ images, model: geminiModel }, { headers });
+    }
+
+    const text = parts.map((p: any) => p.text ?? '').join('');
     
     if (!text) {
       const reason = candidate?.finishReason || data.promptFeedback?.blockReason || 'Respon kosong dari AI';
