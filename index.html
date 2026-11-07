@@ -707,8 +707,12 @@
     const portalFrame = document.getElementById('portal-frame');
     const portalNotice = document.getElementById('portal-unconfigured');
     const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-    // Port lokal default Flask (lihat blok if __main__ di portal/app.py: PORT=5000)
-    const PORTAL_URL_LOKAL = 'http://127.0.0.1:5000/';
+    // Port lokal default Flask (lihat blok if __main__ di portal/app.py: PORT=5000).
+    // Pakai hostname yang sama dengan aplikasi admin (bukan hardcoded 127.0.0.1):
+    // Chrome/Edge menganggap "localhost" dan "127.0.0.1" sebagai dua SITE berbeda,
+    // sehingga kuki sesi portal (SameSite=Lax) yang diset di iframe cross-site akan
+    // DILOMOPkan browser → GET /dashboard 302 balik ke /sso → "Sesi tidak ditemukan".
+    const PORTAL_URL_LOKAL = 'http://' + window.location.hostname + ':5000/';
     const portalUrl = isLocal ? PORTAL_URL_LOKAL : window.PORTAL_URL;
     if (portalUrl) {
       const asalPortal = new URL(portalUrl).origin;

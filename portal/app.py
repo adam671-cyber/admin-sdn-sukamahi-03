@@ -151,12 +151,15 @@ if not firebase_admin._apps:
 #   1. Aplikasi admin membuka iframe ke /sso#token=<access_token Supabase>
 #      (token di fragment URL → tidak ikut ke log server).
 #   2. Halaman /sso (tanpa auth) membaca fragment, lalu POST token ke /sso.
-#   3. Server memverifikasi token ke Supabase Auth + memastikan user terdaftar
-#      di tabel staf (RLS "staf baca sendiri"), lalu menyetel kuki sesi HMAC.
+#   3. Server memverifikasi token ke Supabase Auth + memastikan user punya role
+#      admin/guru/pegawai yang aktif di profiles (RLS "profiles_select_own"),
+#      lalu menyetel kuki sesi HMAC.
 #   4. Semua route lain dilindungi decorator @wajib_login.
 
 PORTAL_SESI_NAMA = "sesi_portal"
 PORTAL_SESI_UMUR = 8 * 3600  # 8 jam
+# Role yang diizinkan membuka portal (dari tabel profiles).
+ROLE_PORTAL_DIIZINKAN = {"admin", "guru", "pegawai"}
 ASAL_ADMIN = [
     "admin-sdn-sukamahi-03.vercel.app",
     "admin-sdn-sukamahi-03-bdlh.vercel.app",
@@ -298,17 +301,23 @@ def sso():
                     json.dumps({"ok": False, "pesan": "Sesi tidak valid. Muat ulang portal dari aplikasi admin."}),
                     mimetype="application/json", status=401)
 
-            # Pastikan user terdaftar sebagai staf (RLS: staf hanya bisa baca barisnya sendiri).
-            cek_staf = requests.get(
-                f"{SUPABASE_URL}/rest/v1/staf",
-                params={"user_id": f"eq.{uid}", "select": "user_id"},
+            # Pastikan user punya role (admin/guru/pegawai) yang aktif di profiles.
+            # RLS "profiles_select_own": setiap akun hanya bisa baca barisnya sendiri.
+            cek_profil = requests.get(
+                f"{SUPABASE_URL}/rest/v1/profiles",
+                params={"id": f"eq.{uid}", "select": "role,is_active"},
                 headers={"Authorization": f"Bearer {token}", "apikey": SUPABASE_ANON_KEY},
                 timeout=15,
             )
-            baris = cek_staf.json() if cek_staf.ok else []
-            if not isinstance(baris, list) or not baris:
+            baris = cek_profil.json() if cek_profil.ok else []
+            profil = baris[0] if isinstance(baris, list) and baris else {}
+            role = str(profil.get("role", "")).strip().lower()
+            if role not in ROLE_PORTAL_DIIZINKAN or profil.get("is_active") is not True:
                 return Response(
-                    json.dumps({"ok": False, "pesan": "Akun belum terdaftar sebagai staf sekolah."}),
+                    json.dumps({
+                        "ok": False,
+                        "pesan": "Akun belum terdaftar sebagai admin/guru/pegawai aktif di sekolah.",
+                    }),
                     mimetype="application/json", status=403)
         except (requests.RequestException, ValueError):
             return Response(
@@ -321,10 +330,17 @@ def sso():
             max_age=PORTAL_SESI_UMUR, httponly=True, path="/",
             samesite="None" if produksi else "Lax", secure=produksi,
         )
-        try:
-            # CHIPS: kuki terpartisi agar tersimpan dalam konteks iframe pihak ketiga.
-            respons.set_cookie(PORTAL_SESI_NAMA, buat_cookie_sesi(uid, email), partitioned=True, **argumen_kuki)
-        except TypeError:
+        if produksi:
+            # CHIPS: kuki terpartisi + SameSite=None + Secure agar tersimpan
+            # dalam konteks iframe pihak ketiga (Vercel -> portal produksi).
+            try:
+                respons.set_cookie(PORTAL_SESI_NAMA, buat_cookie_sesi(uid, email), partitioned=True, **argumen_kuki)
+            except TypeError:
+                respons.set_cookie(PORTAL_SESI_NAMA, buat_cookie_sesi(uid, email), **argumen_kuki)
+        else:
+            # Lokal: kuki biasa (Lax, tanpa Partitioned) di loopback.
+            # Partisi + Lax ditolak Chrome secara diam-diam di iframe,
+            # sehingga kuki tidak pernah kembali ke /dashboard.
             respons.set_cookie(PORTAL_SESI_NAMA, buat_cookie_sesi(uid, email), **argumen_kuki)
         return respons
 
