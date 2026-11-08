@@ -334,7 +334,7 @@ function renderJurnal() {
   });
 }
 
-/* ---------- Waktu: pemilih jam & menit 24 jam (tanpa AM/PM), disimpan "05.20-06.30" ---------- */
+/* ---------- Waktu: isian jam & menit manual 24 jam (tanpa AM/PM), disimpan "05.20-06.30" ---------- */
 const jWaktuPecah = (teks) => {
   const m = String(teks || '').match(/(\d{1,2})[.:](\d{2})\s*(?:-|\u2013|\u2014|s\s*\.?\s*[/.]?\s*d\.?|sampai)\s*(\d{1,2})[.:](\d{2})/i);
   if (!m) return { mulai: '', selesai: '' };
@@ -346,162 +346,61 @@ const jWaktuPecah = (teks) => {
 const jWaktuTeks = (mulai, selesai) => (
   mulai && selesai ? String(mulai).replace(':', '.') + '-' + String(selesai).replace(':', '.') : ''
 );
-/* Scroll wheel 24 jam ala iOS: 2 kolom (jam & menit) per peran.
-   Menit penuh 00–59 (tidak di-step 5). User tinggal scroll/gulir langsung
-   — tidak perlu tahan-dan-geser. Container kecil (tinggi = 1 item). */
-const J_WHEEL_ITEM = 44;      // tinggi per angka (px)
-const J_WHEEL_JAM_RANGE = 24;     // 0..23
-const J_WHEEL_MENIT_RANGE = 60;   // 0..59
+/* Isian jam & menit manual: 2 kolom angka (JAM : MENIT) per peran.
+   Jam 0–23, menit 0–59; langsung diketik user (menggantikan scroll wheel). */
+const J_LABEL_PERAN = { mulai: 'Mulai', selesai: 'Selesai' };
 
-const jWheelKolom = (peran, i, label, nilai, range, step) => {
-  const pad = (n) => String(n).padStart(2, '0');
+const jKolomWaktu = (peran, i, label, nilai) => {
   const labelLower = label.toLowerCase();
-  const items = [];
-  for (let n = 0; n < range; n++) {
-    const v = pad(n * step);
-    const terpilih = v === String(nilai || '');
-    items.push(`<li data-j-w="${n}" data-j-w-val="${v}" class="flex h-[44px] items-center justify-center text-2xl select-none cursor-pointer ${terpilih ? 'font-bold text-ink' : 'font-medium text-ink/40'}">${v}</li>`);
-  }
-  /* default offset: item tengah dari range; hidden input kosong */
-  const defaultIdx = Math.min(2, range - 1);
-  return `<div class="flex flex-col items-center gap-0.5">
-    <span class="text-[10px] font-semibold tracking-wider text-ink/60">${label}</span>
-    <ol class="j-wheel" data-wheel data-peran="${peran}" data-i="${i}" data-label="${labelLower}"
-        data-range="${range}" data-step="${step}" data-offset="${defaultIdx * J_WHEEL_ITEM}">
-      <div class="j-wheel-list" style="transform:translateY(${-defaultIdx * J_WHEEL_ITEM}px)">
-        ${items.join('')}
-      </div>
-    </ol>
-    <input type="hidden" name="waktu_${peran}_${labelLower}_${i}" value="${String(nilai || '')}">
+  return `<div class="flex flex-col items-center gap-1">
+    <label class="text-[10px] font-semibold tracking-wider text-ink/60" for="waktu_${peran}_${labelLower}_${i}">${label}</label>
+    <input type="text" inputmode="numeric" autocomplete="off" id="waktu_${peran}_${labelLower}_${i}"
+      name="waktu_${peran}_${labelLower}_${i}" value="${String(nilai || '')}"
+      class="h-11 w-14 rounded-lg border-2 border-emas/70 bg-white text-center text-xl font-semibold tabular-nums text-ink outline-none focus:border-emas">
   </div>`;
 };
 
-/* 2 kolom (jam & menit) + label peran (Mulai/Selesai) + hidden fields. */
-const J_LABEL_PERAN = { mulai: 'Mulai', selesai: 'Selesai' };
+/* 2 kolom (jam & menit) + label peran (Mulai/Selesai). */
 const jPilihWaktu = (peran, i, nilai) => {
   const [jam = '', menit = ''] = String(nilai || '').split(':');
   return `<div>
     <p class="mb-1.5 text-[11px] font-bold text-ink/70">${J_LABEL_PERAN[peran] || ''}</p>
-    <div class="flex items-end gap-3">
-      ${jWheelKolom(peran, i, 'JAM', jam, J_WHEEL_JAM_RANGE, 1)}
-      <span class="pb-2 text-lg font-bold text-ink/40">:</span>
-      ${jWheelKolom(peran, i, 'MENIT', menit, J_WHEEL_MENIT_RANGE, 1)}
+    <div class="flex items-end gap-2.5">
+      ${jKolomWaktu(peran, i, 'JAM', jam)}
+      <span class="pb-2.5 text-lg font-bold text-ink/40">:</span>
+      ${jKolomWaktu(peran, i, 'MENIT', menit)}
     </div>
   </div>`;
 };
-
-/* Terapkan offset: geser list ke posisi idx, update gaya item & hidden input */
-const jWheelTerapkan = (ol) => {
-  const range = Number(ol.dataset.range);
-  const step = Number(ol.dataset.step);
-  const per = J_WHEEL_ITEM;
-  const idx = Number(ol.dataset.offset || 0) / per;
-  const list = ol.querySelector('.j-wheel-list');
-  if (list) list.style.transform = 'translateY(' + (-idx * per) + 'px)';
-  const peran = ol.dataset.peran;
-  const i = ol.dataset.i;
-  const labelLower = (ol.dataset.label || 'jam').toLowerCase();
-  const val = String(idx * step).padStart(2, '0');
-  Array.from(list.children).forEach((li, n) => {
-    const terpilih = Number(n) === Number(idx);
-    li.classList.toggle('font-bold', terpilih);
-    li.classList.toggle('text-ink', terpilih);
-    li.classList.toggle('font-medium', !terpilih);
-    li.classList.toggle('text-ink/40', !terpilih);
-  });
-  const form = ol.closest('form');
-  if (form) {
-    const input = form.querySelector(`input[name="waktu_${peran}_${labelLower}_${i}"]`);
-    if (input) { input.value = val; jPratinjauWaktu(input); }
-  }
-};
-
-/* Helper: geser offset ol ke idx baru (clamp 0..range-1) lalu terapkan */
-const jWheelGeser = (ol, idx) => {
-  const range = Number(ol.dataset.range);
-  const per = J_WHEEL_ITEM;
-  const di = Math.max(0, Math.min(range - 1, Math.round(idx)));
-  ol.dataset.offset = di * per;
-  jWheelTerapkan(ol);
-};
-
-/* Mouse wheel: 1 tick = 1 item, responsif gulir biasa */
-document.addEventListener('wheel', (e) => {
-  const ol = e.target.closest('[data-wheel]');
-  if (!ol) return;
-  e.preventDefault();
-  const curIdx = Number(ol.dataset.offset || 0) / J_WHEEL_ITEM;
-  const delta = e.deltaY > 0 ? 1 : -1;
-  jWheelGeser(ol, Math.round(curIdx) + delta);
-}, { passive: false });
-
-/* Mouse drag (desktop): klik & tahan, lalu geser mouse.
-   Catat posisi mulai saat mousedown, update offset saat mousemove. */
-document.addEventListener('mousedown', (e) => {
-  const ol = e.target.closest('[data-wheel]');
-  if (!ol) return;
-  e.preventDefault();
-  ol._jStartY = e.clientY;
-  ol._jStartOffset = Number(ol.dataset.offset || 0);
-  const onMove = (ev) => {
-    const dy = ev.clientY - ol._jStartY;
-    const deltaItems = Math.round(-dy / J_WHEEL_ITEM);
-    const range = Number(ol.dataset.range);
-    const di = Math.max(0, Math.min(range - 1,
-      Math.round(ol._jStartOffset / J_WHEEL_ITEM) + deltaItems));
-    ol.dataset.offset = di * J_WHEEL_ITEM;
-    jWheelTerapkan(ol);
-  };
-  const onUp = () => {
-    document.removeEventListener('mousemove', onMove);
-    document.removeEventListener('mouseup', onUp);
-  };
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('mouseup', onUp);
-});
-
-/* Swipe sentuh (HP): geser jari langsung, tanpa perlu tahan dulu.
-   Catat posisi mulai saat jari nge-tap, lalu update offset saat geser. */
-document.addEventListener('touchstart', (e) => {
-  const ol = e.target.closest('[data-wheel]');
-  if (!ol) return;
-  ol._jStartY = e.touches[0].clientY;
-  ol._jStartOffset = Number(ol.dataset.offset || 0);
-}, { passive: false });
-document.addEventListener('touchmove', (e) => {
-  const ol = e.target.closest('[data-wheel]');
-  if (!ol || ol._jStartY == null) return;
-  e.preventDefault();
-  const dy = e.touches[0].clientY - ol._jStartY;
-  const deltaItems = Math.round(-dy / J_WHEEL_ITEM);
-  const range = Number(ol.dataset.range);
-  const di = Math.max(0, Math.min(range - 1,
-    Math.round(ol._jStartOffset / J_WHEEL_ITEM) + deltaItems));
-  ol.dataset.offset = di * J_WHEEL_ITEM;
-  jWheelTerapkan(ol);
-}, { passive: false });
-/* Ambil & validasi waktu dari form; melempar pesan bila tidak lengkap atau terbalik. */
+/* Ambil & validasi waktu dari form; melempar pesan bila tidak lengkap,
+   tidak 2 digit (format wajib "07:08"), di luar rentang, atau terbalik. */
 function jWaktuForm(fd, i) {
+  const duaDigit = /^\d{2}$/;
   const ambil = (peran) => {
-    const jam = String(fd.get('waktu_' + peran + '_jam_' + i) || '');
-    const menit = String(fd.get('waktu_' + peran + '_menit_' + i) || '');
-    return jam && menit ? jam + ':' + menit : '';
+    const jam = String(fd.get('waktu_' + peran + '_jam_' + i) || '').trim();
+    const menit = String(fd.get('waktu_' + peran + '_menit_' + i) || '').trim();
+    if (!jam && !menit) return '';
+    if (!duaDigit.test(jam) || !duaDigit.test(menit)) throw new Error(J_LABEL_PERAN[peran] + ' kegiatan ' + (i + 1) + ' harus 2 digit, contoh 07:08.');
+    const jn = Number(jam), mn = Number(menit);
+    if (jn > 23) throw new Error('Jam mulai/selesai kegiatan ' + (i + 1) + ' hanya boleh 0–23.');
+    if (mn > 59) throw new Error('Menit kegiatan ' + (i + 1) + ' hanya boleh 0–59.');
+    return jam + ':' + menit;
   };
   const mulai = ambil('mulai'), selesai = ambil('selesai');
   if (!mulai || !selesai) throw new Error('Jam mulai dan jam selesai kegiatan ' + (i + 1) + ' wajib diisi.');
   if (selesai <= mulai) throw new Error('Jam selesai harus lebih besar dari jam mulai (kegiatan ' + (i + 1) + ').');
   return jWaktuTeks(mulai, selesai);
 }
-/* Perbarui teks "Tersimpan: ..." saat pilihan jam/menit berubah. */
+/* Perbarui teks "Tersimpan: ..." saat isian jam/menit berubah. */
 function jPratinjauWaktu(target) {
   const m = String((target && target.name) || '').match(/^waktu_(?:mulai|selesai)_(?:jam|menit)_(\d+)$/);
   if (!m || !target.form) return;
   const i = m[1];
   const fd = new FormData(target.form);
   const ambil = (peran) => {
-    const jam = String(fd.get('waktu_' + peran + '_jam_' + i) || '');
-    const menit = String(fd.get('waktu_' + peran + '_menit_' + i) || '');
-    return jam && menit ? jam + ':' + menit : '';
+    const jam = String(fd.get('waktu_' + peran + '_jam_' + i) || '').trim();
+    const menit = String(fd.get('waktu_' + peran + '_menit_' + i) || '').trim();
+    return /^\d{2}$/.test(jam) && /^\d{2}$/.test(menit) ? jam + ':' + menit : '';
   };
   const el = document.querySelector('[data-waktu-pratinjau="' + i + '"]');
   if (el) el.textContent = jWaktuTeks(ambil('mulai'), ambil('selesai')) || '-';
@@ -1367,8 +1266,18 @@ document.addEventListener('change', (e) => {
   const id = e.target.id || '';
   if (id.startsWith('bukti_file_')) jTampilkanBuktiForm(id.slice('bukti_file_'.length));
 });
-/* Pratinjau teks waktu yang akan tersimpan, supaya terlihat sebelum menyimpan. */
-document.addEventListener('input', (e) => jPratinjauWaktu(e.target));
+/* Pratinjau teks waktu yang akan tersimpan, supaya terlihat sebelum menyimpan.
+   Isian jam/menit: hanya angka (karakter lain dibuang) dan maksimal 2 digit. */
+document.addEventListener('input', (e) => {
+  const t = e.target;
+  const waktu = String(t.name || '').match(/^waktu_(?:mulai|selesai)_(?:jam|menit)_\d+$/);
+  if (waktu) {
+    let v = t.value.replace(/\D/g, '');
+    if (v.length > 2) v = v.slice(0, 2);
+    if (v !== t.value) t.value = v;
+  }
+  jPratinjauWaktu(t);
+});
 document.addEventListener('change', (e) => jPratinjauWaktu(e.target));
 const jAksiBtn = $('#j-aksi'), jAksiMenu = $('#j-aksi-menu');
 if (jAksiBtn && jAksiMenu) {
