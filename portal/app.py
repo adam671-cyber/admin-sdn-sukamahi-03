@@ -221,9 +221,9 @@ def _tandatangan(muatan: str) -> str:
     return hmac.new(flask_secret_key.encode(), muatan.encode(), hashlib.sha256).hexdigest()
 
 
-def buat_cookie_sesi(uid: str, email: str) -> str:
+def buat_cookie_sesi(uid: str, email: str, role: str) -> str:
     kedaluwarsa = int(time.time()) + PORTAL_SESI_UMUR
-    muatan = f"{uid}|{kedaluwarsa}|{email}"
+    muatan = f"{uid}|{kedaluwarsa}|{email}|{role}"
     return f"{muatan}|{_tandatangan(muatan)}"
 
 
@@ -232,14 +232,16 @@ def baca_sesi():
     if not nilai:
         return None
     bagian = nilai.split("|")
-    if len(bagian) != 4:
+    if len(bagian) != 5:
         return None
-    uid, exp_str, email, tanda = bagian
+    uid, exp_str, email, role, tanda = bagian
     if not exp_str.isdigit() or int(exp_str) < int(time.time()):
         return None
-    if not secrets.compare_digest(_tandatangan(f"{uid}|{exp_str}|{email}"), tanda):
+    if role not in ROLE_PORTAL_DIIZINKAN:
         return None
-    return {"uid": uid, "email": email}
+    if not secrets.compare_digest(_tandatangan(f"{uid}|{exp_str}|{email}|{role}"), tanda):
+        return None
+    return {"uid": uid, "email": email, "role": role}
 
 
 def wajib_login(view):
@@ -337,14 +339,14 @@ def sso():
             # CHIPS: kuki terpartisi + SameSite=None + Secure agar tersimpan
             # dalam konteks iframe pihak ketiga (Vercel -> portal produksi).
             try:
-                respons.set_cookie(PORTAL_SESI_NAMA, buat_cookie_sesi(uid, email), partitioned=True, **argumen_kuki)
+                respons.set_cookie(PORTAL_SESI_NAMA, buat_cookie_sesi(uid, email, role), partitioned=True, **argumen_kuki)
             except TypeError:
-                respons.set_cookie(PORTAL_SESI_NAMA, buat_cookie_sesi(uid, email), **argumen_kuki)
+                respons.set_cookie(PORTAL_SESI_NAMA, buat_cookie_sesi(uid, email, role), **argumen_kuki)
         else:
             # Lokal: kuki biasa (Lax, tanpa Partitioned) di loopback.
             # Partisi + Lax ditolak Chrome secara diam-diam di iframe,
             # sehingga kuki tidak pernah kembali ke /dashboard.
-            respons.set_cookie(PORTAL_SESI_NAMA, buat_cookie_sesi(uid, email), **argumen_kuki)
+            respons.set_cookie(PORTAL_SESI_NAMA, buat_cookie_sesi(uid, email, role), **argumen_kuki)
         return respons
 
     # GET: halaman penukar token fragment -> kuki sesi.
@@ -606,8 +608,15 @@ def riwayat():
         db_firestore = firestore.client()
         docs = db_firestore.collection('riwayat_rpp').order_by('created_at', direction=firestore.Query.DESCENDING).stream()
         
+        # Otorisasi: non-admin hanya melihat dokumen miliknya sendiri;
+        # admin boleh melihat seluruh riwayat.
+        user_uid = g.sesi.get('uid', '') if hasattr(g, 'sesi') and g.sesi else ''
+        user_role = g.sesi.get('role', '') if hasattr(g, 'sesi') and g.sesi else ''
+
         for doc in docs:
             data = doc.to_dict() or {}
+            if user_role != 'admin' and data.get('user_id') != user_uid:
+                continue
             data['id'] = doc.id
             jenjang = data.get('jenjang', 'Lainnya')
             

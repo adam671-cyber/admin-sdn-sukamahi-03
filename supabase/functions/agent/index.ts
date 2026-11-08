@@ -65,7 +65,9 @@ Deno.serve(async (req) => {
   const isAdmin = profil.role === 'admin';
 
   // Ambil konteks pakai service_role agar tidak terblokir RLS.
-  // Data mutasi siswa HANYA dimuat jika pemanggil adalah admin (menegakkan prinsip hak akses minimal).
+  // Hak akses minimal (selaras migrasi 012_rls_pisah_role): tugas, dokumen_guru,
+  // agregat jurnal pegawai, dan mutasi siswa HANYA dimuat untuk admin.
+  // Non-admin hanya menerima jurnal miliknya sendiri dan profilnya sendiri.
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
   const sb = serviceKey
     ? createClient(Deno.env.get('SUPABASE_URL')!, serviceKey)
@@ -75,15 +77,17 @@ Deno.serve(async (req) => {
   const hari = new Date().toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', dateStyle: 'full' });
   const tglHariIni = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
   const [rt, rg, rd, rmm, rmk, cmm, cmk, rp, rj] = await Promise.all([
-    sb.from('tugas').select('judul,tenggat,selesai').order('tenggat'),
+    isAdmin ? sb.from('tugas').select('judul,tenggat,selesai').order('tenggat') : Promise.resolve({ data: [] }),
     sb.from('guru').select('id,nama,jabatan,profil').order('nama'),
-    sb.from('dokumen_guru').select('guru_id,jenis'),
+    isAdmin ? sb.from('dokumen_guru').select('guru_id,jenis') : Promise.resolve({ data: [] }),
     isAdmin ? sb.from('mutasi_masuk').select('nama_siswa,asal_sekolah,kelas,tanggal_surat').order('dibuat', { ascending: false }).limit(100) : Promise.resolve({ data: [] }),
     isAdmin ? sb.from('mutasi_keluar').select('nama_siswa,sekolah_tujuan,kelas,tanggal_surat').order('dibuat', { ascending: false }).limit(100) : Promise.resolve({ data: [] }),
     isAdmin ? sb.from('mutasi_masuk').select('id', { count: 'exact', head: true }) : Promise.resolve({ count: 0 }),
     isAdmin ? sb.from('mutasi_keluar').select('id', { count: 'exact', head: true }) : Promise.resolve({ count: 0 }),
-    sb.from('profiles').select('id,guru_id'),
-    sb.from('jurnal_harian').select('user_id').eq('tanggal', tglHariIni),
+    isAdmin ? sb.from('profiles').select('id,guru_id') : sb.from('profiles').select('id,guru_id').eq('id', user.id),
+    isAdmin
+      ? sb.from('jurnal_harian').select('user_id').eq('tanggal', tglHariIni)
+      : sb.from('jurnal_harian').select('user_id').eq('tanggal', tglHariIni).eq('user_id', user.id),
   ]);
   const tugas = rt.data ?? [], guru = rg.data ?? [], dok = rd.data ?? [];
   const mm = rmm.data ?? [], mk = rmk.data ?? [];
@@ -94,18 +98,26 @@ Deno.serve(async (req) => {
     const k = String(r.user_id);
     hitungJurnal.set(k, (hitungJurnal.get(k) ?? 0) + 1);
   });
-  const statusJurnal = guru.map((g: any) => {
-    const uid = profilMap.get(String(g.id));
-    const n = uid ? (hitungJurnal.get(uid) ?? 0) : 0;
-    return `- ${g.nama}: ${n > 0 ? `sudah mengisi (${n}/3 kegiatan)` : (uid ? 'belum mengisi' : 'belum ada akun tertaut')}`;
-  }).join('\n') || '(belum ada data)';
-  const sudahJurnal = guru.filter((g: any) => {
-    const uid = profilMap.get(String(g.id));
-    return uid && (hitungJurnal.get(uid) ?? 0) > 0;
-  }).length;
+  const nJurnalSendiri = hitungJurnal.get(String(user.id)) ?? 0;
+  const statusJurnal = isAdmin
+    ? (guru.map((g: any) => {
+        const uid = profilMap.get(String(g.id));
+        const n = uid ? (hitungJurnal.get(uid) ?? 0) : 0;
+        return `- ${g.nama}: ${n > 0 ? `sudah mengisi (${n}/3 kegiatan)` : (uid ? 'belum mengisi' : 'belum ada akun tertaut')}`;
+      }).join('\n') || '(belum ada data)')
+    : (nJurnalSendiri > 0
+        ? `Kamu sudah mengisi jurnal hari ini (${nJurnalSendiri}/3 kegiatan).`
+        : 'Kamu belum mengisi jurnal hari ini.');
+  const sudahJurnal = isAdmin
+    ? guru.filter((g: any) => {
+        const uid = profilMap.get(String(g.id));
+        return uid && (hitungJurnal.get(uid) ?? 0) > 0;
+      }).length
+    : (nJurnalSendiri > 0 ? 1 : 0);
   const belum = tugas.filter((t) => !t.selesai);
   const daftar = belum.map((t) => `- ${t.judul}${t.tenggat ? ` (tenggat ${t.tenggat})` : ''}`).join('\n') || '(tidak ada)';
   const daftarGuru = guru.map((g) => {
+    if (!isAdmin) return `- ${g.nama} (${g.jabatan ?? '-'})`;
     const jenis = dok.filter((d) => d.guru_id === g.id).map((d) => d.jenis);
     return `- ${g.nama} (${g.jabatan ?? '-'}) dokumen: ${jenis.length ? jenis.join(', ') : 'belum ada'}`;
   }).join('\n') || '(belum ada data)';
@@ -114,7 +126,13 @@ Deno.serve(async (req) => {
   const infoMutasi = isAdmin
     ? `Total mutasi masuk: ${totalMM} siswa, total mutasi keluar: ${totalMK} siswa, total keseluruhan: ${totalMM + totalMK} siswa.\nMutasi masuk (100 terbaru):\n${daftarMM}\n\nMutasi keluar (100 terbaru):\n${daftarMK}`
     : `(Akses data mutasi siswa dibatasi hanya untuk akun administrator)`;
-  const konteks = `Hari ini: ${hari}\nPekerjaan belum selesai (${belum.length} dari ${tugas.length}):\n${daftar}\n\nJumlah guru/pegawai: ${guru.length}\n${daftarGuru}\n\nJurnal harian tanggal ${tglHariIni}: ${sudahJurnal} dari ${guru.length} pegawai sudah mengisi.\n${statusJurnal}\n\n${infoMutasi}`;
+  const infoTugas = isAdmin
+    ? `Pekerjaan belum selesai (${belum.length} dari ${tugas.length}):\n${daftar}`
+    : `(Daftar pekerjaan administrasi hanya tersedia untuk akun administrator)`;
+  const infoJurnal = isAdmin
+    ? `Jurnal harian tanggal ${tglHariIni}: ${sudahJurnal} dari ${guru.length} pegawai sudah mengisi.\n${statusJurnal}`
+    : `Jurnal harianmu tanggal ${tglHariIni}: ${statusJurnal}\n(Status pengisian jurnal pegawai lain hanya tersedia untuk akun administrator)`;
+  const konteks = `Hari ini: ${hari}\n${infoTugas}\n\nJumlah guru/pegawai: ${guru.length}\n${daftarGuru}\n\n${infoJurnal}\n\n${infoMutasi}`;
   // ponytail: tanpa tabel kalender di DB; tambah query + baris konteks saat tabel kalender ada.
 
   const systemInstruction = `${SYSTEM_PROMPT}
