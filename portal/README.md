@@ -14,6 +14,9 @@ site can stay at the repository root.
   - `SUPABASE_ANON_KEY`
   - `FLASK_SECRET_KEY` (a new random value)
   - `FIREBASE_SERVICE_ACCOUNT_JSON` (the service-account JSON value)
+  - `PORTAL_SECRET` (a new random value; must match the `PORTAL_SECRET` secret
+    set for the Supabase Edge Function — without it, calls to `generate-modul`
+    fail with 401 "Belum login")
 - Do not set `GEMINI_API_KEY` here; Gemini is called through the Supabase Edge
   Function and its key belongs only in Supabase Function Secrets.
 

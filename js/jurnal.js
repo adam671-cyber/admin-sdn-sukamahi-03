@@ -356,7 +356,7 @@ const jKolomWaktu = (peran, i, label, nilai) => {
     <label class="text-[10px] font-semibold tracking-wider text-ink/60" for="waktu_${peran}_${labelLower}_${i}">${label}</label>
     <input type="text" inputmode="numeric" autocomplete="off" id="waktu_${peran}_${labelLower}_${i}"
       name="waktu_${peran}_${labelLower}_${i}" value="${String(nilai || '')}"
-      class="h-11 w-14 rounded-lg border-2 border-emas/70 bg-white text-center text-xl font-semibold tabular-nums text-ink outline-none focus:border-emas">
+      class="h-9 w-12 rounded-lg border-2 border-emas/70 bg-white text-center text-lg font-semibold tabular-nums text-ink outline-none focus:border-emas">
   </div>`;
 };
 
@@ -365,7 +365,7 @@ const jPilihWaktu = (peran, i, nilai) => {
   const [jam = '', menit = ''] = String(nilai || '').split(':');
   return `<div>
     <p class="mb-1.5 text-[11px] font-bold text-ink/70">${J_LABEL_PERAN[peran] || ''}</p>
-    <div class="flex items-end gap-2.5">
+    <div class="flex items-end gap-1.5">
       ${jKolomWaktu(peran, i, 'JAM', jam)}
       <span class="pb-2.5 text-lg font-bold text-ink/40">:</span>
       ${jKolomWaktu(peran, i, 'MENIT', menit)}
@@ -416,7 +416,7 @@ function blokKegiatan(i, item, nomor) {
       <div class="grid gap-2.5">
         <div>
           <p class="text-sm font-semibold">Waktu</p>
-          <div class="mt-1 grid grid-cols-2 gap-3">
+          <div class="mt-1 grid grid-cols-2 gap-6">
             ${jPilihWaktu('mulai', i, wkt.mulai)}
             ${jPilihWaktu('selesai', i, wkt.selesai)}
           </div>
