@@ -104,6 +104,9 @@ function terapkanRole() {
   if (flatSb) flatSb.classList.toggle('hidden', !(peran() === 'guru' && bolehAbsensiSiswa()));
   const flatBn = $('#bn-absensi-siswa');
   if (flatBn) flatBn.classList.toggle('hidden', !(peran() === 'guru' && bolehAbsensiSiswa()));
+  // Admin (menu banyak): bottom bar HP boleh digeser horizontal agar tidak rapat.
+  const bnNav = document.getElementById('bottomnav');
+  if (bnNav) bnNav.classList.toggle('bn-scroll', adalahAdmin());
   const nama = (profilSaya && profilSaya.nama) || session.user.email;
   const ue = $('#user-email');
   if (ue) ue.textContent = nama + ' (' + peran() + ')';

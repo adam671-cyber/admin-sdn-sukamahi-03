@@ -293,6 +293,18 @@ html.dark .as-tabel thead th:not(.bg-red-600) { background-color: #33423C; }
 html.dark .ds-tabel thead th { background-color: #33423C; }
 html.dark .ds-tabel tbody td:nth-child(5) { background-color: #2B3631; }
 
+@media (max-width: 767px) {
+  /* Mobile: kolom Nama sticky dibatasi lebarnya agar kolom lain (Ortu dll) tidak tersimpit */
+  .ds-tabel thead th:nth-child(5), .ds-tabel tbody td:nth-child(5) {
+    width: 11rem; min-width: 11rem; max-width: 11rem;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  /* Role admin (banyak item menu): bottom bar bisa digeser horizontal, tidak rapat */
+  .bottomnav.bn-scroll { overflow-x: auto; scrollbar-width: none; }
+  .bottomnav.bn-scroll::-webkit-scrollbar { display: none; }
+  .bottomnav.bn-scroll .bn-item { flex: 0 0 auto; min-width: 4rem; padding: 4px 10px; }
+}
+
 /* Tampilan lebar: tampilan mutasi mengisi seluruh ruang samping & bawah */
 @media (min-width: 1024px) {
   main:has(> section[id^="view-mutasi"]:not(.hidden)) { max-width: none; }

@@ -55,9 +55,9 @@ function sRender() {
   const tampilTabs = sTab === 'data' ? tabs.filter(([k]) => k !== 'data') : tabs;
   $('#ds-root').innerHTML = `
     <article class="rounded-xl bg-white p-4 space-y-3">
-      <div class="flex flex-wrap items-center gap-2">
-        <h2 class="font-extrabold text-lg mr-auto">Database Siswa</h2>
-        ${tampilTabs.map(([k, l]) => `<button data-stab="${k}" class="${sTab === k ? S_BTN : S_BTN_O}">${l}</button>`).join('')}
+      <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+        <h2 class="col-span-2 font-extrabold text-lg sm:col-span-1 sm:mr-auto">Database Siswa</h2>
+        ${tampilTabs.map(([k, l]) => `<button data-stab="${k}" class="${sTab === k ? S_BTN : S_BTN_O} w-full sm:w-auto">${l}</button>`).join('')}
       </div>
       <div id="ds-isi"></div>
     </article>`;
@@ -74,12 +74,12 @@ function sRenderTab() {
 function sRenderData() {
   const opsiKelas = '<option value="">Semua rombel</option>' + sKelas.map((k) => `<option value="${k.id}" ${String(k.id) === sFilter ? 'selected' : ''}>${esc(k.nama)}</option>`).join('');
   $('#ds-isi').innerHTML = `
-    <div class="flex flex-wrap items-end gap-2 mb-3">
-      <button data-saksi="tambah" class="${S_BTN}">+ Tambah Siswa</button>
-      <button data-saksi="batch" class="${S_BTN_O}">Upload Batch Excel</button>
-      <button data-saksi="hapus-batch" class="rounded-lg border border-red-600 text-red-600 text-xs font-semibold px-3 py-1.5 hover:bg-red-600 hover:text-white">Hapus per Rombel</button>
-      <input id="ds-cari" type="search" value="${esc(sCari)}" placeholder="Cari nama / NIS / NISN" class="${S_INP} min-w-[14rem] ml-auto">
-      <select id="ds-filter" class="${S_INP}">${opsiKelas}</select>
+    <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-end mb-3">
+      <button data-saksi="tambah" class="${S_BTN} w-full sm:w-auto">+ Tambah Siswa</button>
+      <button data-saksi="batch" class="${S_BTN_O} w-full sm:w-auto">Upload Batch Excel</button>
+      <button data-saksi="hapus-batch" class="col-span-2 sm:col-span-1 w-full sm:w-auto rounded-lg border border-red-600 text-red-600 text-xs font-semibold px-3 py-1.5 hover:bg-red-600 hover:text-white">Hapus per Rombel</button>
+      <input id="ds-cari" type="search" value="${esc(sCari)}" placeholder="Cari nama / NIS / NISN" class="${S_INP} col-span-2 sm:col-span-1 w-full sm:w-auto sm:min-w-[14rem] sm:ml-auto">
+      <select id="ds-filter" class="${S_INP} col-span-2 sm:col-span-1 w-full sm:w-auto">${opsiKelas}</select>
     </div>
     <div class="ds-tabel rounded-lg border border-ink/10">
       <table class="text-left text-xs whitespace-nowrap w-full">
