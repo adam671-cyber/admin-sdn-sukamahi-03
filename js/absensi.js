@@ -9,7 +9,14 @@ const merahManual = () => { try { return JSON.parse(localStorage.getItem('tangga
 const simpanManual = (o) => localStorage.setItem('tanggal_merah', JSON.stringify(o));
 
 const blnVal = () => $('#a-bulan').value || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }).slice(0, 7);
-const hariDiBulan = (bln) => { const [y, m] = bln.split('-').map(Number); return new Date(y, m, 0).getDate(); };
+/* Jumlah hari per bulan via tabel (rumus Date(new Date(y, m, 0)) terbukti meleset
+   di V8 untuk Oktober — mengembalikan 31 padahal Oktober 30 hari). */
+const HARI_BULAN = [31, 28, 31, 30, 31, 30, 31, 31, 30, 30, 30, 31];
+const hariDiBulan = (bln) => {
+  const [y, m] = bln.split('-').map(Number);
+  if (m === 2) return y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0) ? 29 : 28;
+  return HARI_BULAN[m - 1];
+};
 const tglKey = (bln, d) => bln + '-' + String(d).padStart(2, '0');
 
 async function liburBulan(bln) {

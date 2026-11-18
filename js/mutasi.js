@@ -841,18 +841,13 @@ function printKeluar(d) {
 let batchType = 'masuk', batchRows = [];
 const batchFields = () => batchType === 'masuk' ? FIELD_MASUK : FIELD_KELUAR;
 const batchTable = () => batchType === 'masuk' ? MUTASI_MASUK_TABLE : MUTASI_KELUAR_TABLE;
-const xlsxSiap = () => {
-  if (typeof XLSX !== 'undefined') return true;
-  alert('Library Excel belum termuat. Periksa koneksi internet lalu coba lagi.');
-  return false;
-};
-
-function unduhTemplateBatch(type) {
-  if (!xlsxSiap()) return;
+async function unduhTemplateBatch(type) {
+  let X;
+  try { X = await muatXlsx(); } catch (e) { return alert(galatXlsx(e)); }
   const fields = type === 'masuk' ? FIELD_MASUK : FIELD_KELUAR;
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([fields.map((f) => f.k)]), 'data');
-  XLSX.writeFile(wb, 'template-mutasi-' + type + '.xlsx');
+  const wb = X.utils.book_new();
+  X.utils.book_append_sheet(wb, X.utils.aoa_to_sheet([fields.map((f) => f.k)]), 'data');
+  X.writeFile(wb, 'template-mutasi-' + type + '.xlsx');
 }
 
 function bukaModalBatch(type) {
@@ -874,11 +869,12 @@ $('#mb-batal').onclick = tutupModalBatch;
 $('#modal-mutasi-batch').onclick = (e) => { if (e.target.id === 'modal-mutasi-batch') tutupModalBatch(); };
 
 $('#mb-file').onchange = async (e) => {
-  if (!xlsxSiap()) return;
+  let X;
+  try { X = await muatXlsx(); } catch (err) { return alert(galatXlsx(err)); }
   const file = e.target.files[0];
   if (!file) return;
-  const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
-  const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+  const wb = X.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
+  const json = X.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
   const keys = batchFields().map((f) => f.k);
   batchRows = json.map((r) => {
     const row = {};

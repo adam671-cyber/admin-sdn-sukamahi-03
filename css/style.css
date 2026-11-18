@@ -249,6 +249,50 @@ html.dark .jh-dot-belum { border-color: rgba(232,238,234,.35) !important; color:
 .tabel-lekat thead th:first-child { left: 0; z-index: 4; }
 html.dark .tabel-lekat tbody td:first-child { background-color: #2B3631; }
 
+/* ---------- Absensi Siswa: grid harian — header lekat di atas, di HP kolom No & Nama lekat di kiri ---------- */
+.as-tabel { --as-head-h: 32px; }
+.as-tabel thead th { height: var(--as-head-h); position: sticky; top: 0; z-index: 4; }
+.as-tabel thead th:not(.bg-red-600) { background-color: #e5e7eb; }
+.as-tabel thead tr:nth-child(2) th { top: var(--as-head-h); z-index: 3; }
+html.dark .as-tabel thead th:not(.bg-red-600) { background-color: #33423C; }
+
+@media (max-width: 767px) {
+  /* Grid jadi area gulir vertikal sendiri agar tetap muat di layar HP */
+  .as-tabel { max-height: calc(100vh - var(--topbar) - 12rem - env(safe-area-inset-bottom, 0px)); }
+  /* Kolom No & Nama lekat di kiri saat geser kolom tanggal ke kanan */
+  .as-tabel thead tr:first-child th:nth-child(1),
+  .as-tabel thead tr:first-child th:nth-child(2),
+  .as-tabel tbody td:nth-child(1),
+  .as-tabel tbody td:nth-child(2) { position: sticky; background-color: #fff; }
+  .as-tabel thead tr:first-child th:nth-child(1),
+  .as-tabel tbody td:nth-child(1) { left: 0; width: 2rem; min-width: 2rem; max-width: 2rem; }
+  .as-tabel thead tr:first-child th:nth-child(2),
+  .as-tabel tbody td:nth-child(2) { left: 2rem; width: 11rem; min-width: 11rem; max-width: 11rem; }
+  .as-tabel thead tr:first-child th:nth-child(1),
+  .as-tabel thead tr:first-child th:nth-child(2) { z-index: 5; }
+  .as-tabel tbody td:nth-child(1),
+  .as-tabel tbody td:nth-child(2) { z-index: 2; overflow: hidden; text-overflow: ellipsis;
+    box-shadow: 2px 0 4px -2px rgba(20,35,29,.18); }
+  html.dark .as-tabel tbody td:nth-child(1),
+  html.dark .as-tabel tbody td:nth-child(2) { background-color: #2B3631; }
+}
+
+/* ---------- Database Siswa: judul tabel lekat di atas, kolom Nama lekat di kiri (pola tabel mutasi) ---------- */
+.ds-tabel { overflow: auto; max-height: calc(100vh - var(--topbar) - 11rem); }
+.ds-tabel thead th {
+  position: sticky; top: 0; z-index: 4;
+  background-color: #e5e7eb; /* padat: baris tidak tembus di balik judul */
+}
+.ds-tabel thead th:nth-child(5) { left: 0; z-index: 5; }
+.ds-tabel tbody td:nth-child(5) {
+  /* Kolom Nama ikut tergeser saat scroll hingga mentok di tepi kiri container, baru lekat di situ */
+  position: sticky; left: 0; z-index: 3;
+  background-color: #fff;
+  box-shadow: 2px 0 4px -2px rgba(20,35,29,.18); /* garis halus pemisah dari kolom yang meluncur ke kiri */
+}
+html.dark .ds-tabel thead th { background-color: #33423C; }
+html.dark .ds-tabel tbody td:nth-child(5) { background-color: #2B3631; }
+
 /* Tampilan lebar: tampilan mutasi mengisi seluruh ruang samping & bawah */
 @media (min-width: 1024px) {
   main:has(> section[id^="view-mutasi"]:not(.hidden)) { max-width: none; }

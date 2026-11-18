@@ -157,11 +157,14 @@ const jHariTgl = (yyyyMmDd) => {
 };
 
 /* Hari kerja terakhir bulan = hari Senin-Jumat terakhir (Sabtu/Minggu dilompati).
-   Pada tanggal itu laporan berjudul "JURNAL BULANAN PEGAWAI", hari lain tetap harian. */
+   Pada tanggal itu laporan berjudul "JURNAL BULANAN PEGAWAI", hari lain tetap harian.
+   Akhir bulan dihitung dari tabel HARI_BULAN (absensi.js) — idiom new Date(y, m, 0)
+   meleset di V8 untuk Oktober (menghasilkan tanggal fiktif 31 Okt). */
 const jHariKerjaTerakhir = (yyyyMmDd) => {
   const [y, m] = String(yyyyMmDd || '').slice(0, 10).split('-').map(Number);
   if (!y || !m) return '';
-  const d = new Date(y, m, 0);
+  const n = m === 2 ? (y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0) ? 29 : 28) : HARI_BULAN[m - 1];
+  const d = new Date(y, m - 1, n);
   while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() - 1);
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 };

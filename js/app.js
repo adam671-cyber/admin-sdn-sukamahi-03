@@ -15,6 +15,27 @@ let profilSaya = null;
 const peran = () => (profilSaya && profilSaya.role) || 'guru';
 const hanyaJurnal = () => peran() === 'guru' || peran() === 'pegawai' || peran() === 'kepsek';
 const adalahAdmin = () => peran() === 'admin';
+// Absensi siswa: admin + guru (rombel binaan dibatasi RLS). Pegawai/kepsek tidak.
+const bolehAbsensiSiswa = () => adalahAdmin() || peran() === 'guru';
+
+/* ---------- SheetJS (library Excel) bersama ----------
+   Halaman memuat xlsx dari CDN resmi; bila gagal (offline/terblokir),
+   muatXlsx() memuatnya on-demand saat fitur Excel dipakai. Dipakai mutasi.js, siswa.js, dll. */
+const XLSX_CDN = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+let xlsxJanji = null;
+function muatXlsx() {
+  if (typeof XLSX !== 'undefined') return Promise.resolve(XLSX);
+  if (xlsxJanji) return xlsxJanji;
+  xlsxJanji = new Promise((selesai, gagal) => {
+    const s = document.createElement('script');
+    s.src = XLSX_CDN;
+    s.onload = () => (typeof XLSX !== 'undefined' ? selesai(XLSX) : gagal(new Error('library Excel gagal diinisialisasi')));
+    s.onerror = () => { xlsxJanji = null; gagal(new Error('gagal memuat library Excel dari CDN — periksa koneksi internet')); };
+    document.head.appendChild(s);
+  });
+  return xlsxJanji;
+}
+const galatXlsx = (e) => 'Library Excel belum termuat: ' + ((e && e.message) || e) + '. Periksa koneksi internet lalu coba lagi.';
 
 /* Keluar yang tidak bisa nyangkut: signOut boleh gagal, tapi
    sesi lokal tetap dibersihkan dan halaman tetap pindah. */
@@ -63,13 +84,26 @@ function terapkanRole() {
   // Portal Pembelajaran: untuk admin, pegawai, dan guru
   const bolehPortal = adalahAdmin() || peran() === 'pegawai' || peran() === 'guru';
   if (navPortal) navPortal.classList.toggle('hidden', !bolehPortal);
+  // Kartu "Database siswa" di dashboard hanya untuk admin.
+  const kartuSiswa = $('#kartu-siswa');
+  if (kartuSiswa) kartuSiswa.classList.toggle('hidden', !adalahAdmin());
   if (!terbatas) return;
   document.querySelectorAll('#sidebar [data-nav], #bottomnav [data-nav]').forEach((x) => {
-    if (x.dataset.nav !== 'jurnal' && x.dataset.nav !== 'portal') x.classList.add('hidden');
+    const boleh = x.dataset.nav === 'jurnal' || x.dataset.nav === 'portal' || (x.dataset.nav === 'absensi-siswa' && bolehAbsensiSiswa());
+    if (!boleh) x.classList.add('hidden');
   });
-  // Sembunyikan tombol grup di bottom nav (HP) yang bukan Jurnal
+  // Role terbatas (guru/pegawai/kepsek): sembunyikan semua tombol grup di bottom nav (HP).
+  // Guru memakai item flat "Absensi Siswa" alih-alih grup "Data Siswa".
   document.querySelectorAll('#bottomnav .bn-item[data-grup]').forEach((b) => b.classList.add('hidden'));
   ['grup-guru', 'grup-mutasi'].forEach((id) => { const g = document.getElementById(id); if (g) g.classList.add('hidden'); });
+  // Grup "Data Siswa" (sidebar) hanya untuk admin; guru memakai item flat.
+  const gSiswa = document.getElementById('grup-siswa');
+  if (gSiswa) gSiswa.classList.toggle('hidden', !(adalahAdmin() && bolehAbsensiSiswa()));
+  // Item flat "Absensi Siswa" khusus role guru (sidebar + bottom nav): terbuka langsung, tanpa sub-menu
+  const flatSb = $('#nav-absensi-siswa-flat');
+  if (flatSb) flatSb.classList.toggle('hidden', !(peran() === 'guru' && bolehAbsensiSiswa()));
+  const flatBn = $('#bn-absensi-siswa');
+  if (flatBn) flatBn.classList.toggle('hidden', !(peran() === 'guru' && bolehAbsensiSiswa()));
   const nama = (profilSaya && profilSaya.nama) || session.user.email;
   const ue = $('#user-email');
   if (ue) ue.textContent = nama + ' (' + peran() + ')';
@@ -97,7 +131,9 @@ function terapkanRole() {
   addEventListener('hashchange', route);
   if (hanyaJurnal()) {
     const bolehPortal = adalahAdmin() || peran() === 'pegawai' || peran() === 'guru';
-    if (location.hash !== '#jurnal' && !(location.hash === '#portal' && bolehPortal)) location.hash = '#jurnal';
+    const h0 = location.hash;
+    const diizinkan = h0 === '#jurnal' || (h0 === '#portal' && bolehPortal) || (h0 === '#absensi-siswa' && bolehAbsensiSiswa());
+    if (!diizinkan) location.hash = h0 === '#database-siswa' && bolehAbsensiSiswa() ? '#absensi-siswa' : '#jurnal';
     route();
     return;
   }
@@ -141,8 +177,16 @@ $('#btn-grup-mutasi').onclick = () => {
   else setGrup('grup-mutasi', $('#grup-mutasi').dataset.open !== 'true');
 };
 
+$('#btn-grup-siswa').onclick = () => {
+  if (document.body.dataset.side !== 'open') { sideToggle(true); setGrup('grup-siswa', true); }
+  else setGrup('grup-siswa', $('#grup-siswa').dataset.open !== 'true');
+};
+
 /* ---------- Bottom sheet sub-menu (HP) ---------- */
 const BN_SHEET = {
+  siswa: { judul: 'Data Siswa', items: [
+    { nav: 'database-siswa', label: 'Database Siswa', admin: true, ikon: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z' },
+    { nav: 'absensi-siswa', label: 'Absensi Siswa per Kelas', ikon: 'M3 4h18v17H3zM8 2v4M16 2v4M3 9h18' } ] },
   guru: { judul: 'Pegawai', items: [
     { nav: 'guru', label: 'Data Guru', ikon: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z' },
     { nav: 'berkas', label: 'Berkas Digital', ikon: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5z' } ] },
@@ -155,7 +199,7 @@ let bnSheetPrevScrollY = 0;
 function bukaBnSheet(grupKey) {
   const conf = BN_SHEET[grupKey]; if (!conf) return;
   const sheet = $('#bn-sheet'), overlay = $('#bn-sheet-overlay');
-  let html = conf.items.map((it) =>
+  let html = conf.items.filter((it) => !it.admin || adalahAdmin()).map((it) =>
     `<a href="#${it.nav}" data-nav="${it.nav}" class="bn-sheet-item" data-sheet="${grupKey}">${bnSheetIkon(it.ikon)}<span>${esc(it.label)}</span></a>`
   ).join('');
   if (grupKey === 'mutasi') {
@@ -199,7 +243,7 @@ function tutupBnSheet() {
   });
   setTimeout(() => { $('#bn-sheet-body').innerHTML = ''; }, 250);
 }
-['bn-grup-guru', 'bn-grup-mutasi'].forEach((id) => {
+['bn-grup-guru', 'bn-grup-mutasi', 'bn-grup-siswa'].forEach((id) => {
   const b = $('#' + id);
   if (!b) return;
   b.onclick = () => {
@@ -212,22 +256,36 @@ function tutupBnSheet() {
 $('#bn-sheet-overlay').onclick = tutupBnSheet;
 addEventListener('hashchange', () => tutupBnSheet());
 
+function tandaiGrupSiswa(v) {
+  const dalam = v === 'database-siswa' || v === 'absensi-siswa';
+  const btn = $('#btn-grup-siswa'); if (btn) btn.dataset.active = dalam;
+  if (dalam) setGrup('grup-siswa', true);
+  const bn = $('#bn-grup-siswa'); if (bn) bn.dataset.active = dalam;
+}
+
 function route() {
-  const semua = ['dashboard', 'guru', 'berkas', 'mutasi-masuk', 'mutasi-keluar', 'absensi', 'arsip', 'jurnal', 'portal', 'pengguna'];
+  const semua = ['dashboard', 'guru', 'berkas', 'mutasi-masuk', 'mutasi-keluar', 'database-siswa', 'absensi-siswa', 'absensi', 'arsip', 'jurnal', 'portal', 'pengguna'];
   let h = location.hash.slice(1);
   if (hanyaJurnal()) {
     const bolehPortal = adalahAdmin() || peran() === 'pegawai' || peran() === 'guru';
-    if (h !== 'jurnal' && !(h === 'portal' && bolehPortal)) { location.hash = '#jurnal'; h = 'jurnal'; }
+    if (h === 'database-siswa' && bolehAbsensiSiswa()) { location.hash = '#absensi-siswa'; h = 'absensi-siswa'; }
+    const diizinkan = h === 'jurnal' || (h === 'portal' && bolehPortal) || (h === 'absensi-siswa' && bolehAbsensiSiswa());
+    if (!diizinkan) { location.hash = '#jurnal'; h = 'jurnal'; }
     semua.forEach((n) => { const el = $('#view-' + n); if (el) el.classList.toggle('hidden', n !== h); });
     document.querySelectorAll('[data-nav]').forEach((x) => { x.dataset.active = x.dataset.nav === h; });
+    tandaiGrupSiswa(h);
     if (h === 'jurnal' && typeof muatJurnal === 'function') muatJurnal();
     if (h === 'portal' && typeof window.muatPortalIframe === 'function') window.muatPortalIframe();
+    if (h === 'absensi-siswa' && typeof muatAbsensiSiswa === 'function') muatAbsensiSiswa();
     return;
   }
   const v = semua.includes(h) ? h : 'dashboard';
   if (v === 'pengguna' && !adalahAdmin()) { location.hash = '#dashboard'; return; }
   semua.forEach((n) => { const el = $('#view-' + n); if (el) el.classList.toggle('hidden', n !== v); });
-  if (v === 'dashboard') { muatMutasiDashboard(); if (guru.length && typeof muatJurnalDashboard === 'function') muatJurnalDashboard(); }
+  if (v === 'database-siswa' && typeof muatSiswa === 'function') muatSiswa();
+  if (v === 'absensi-siswa' && typeof muatAbsensiSiswa === 'function') muatAbsensiSiswa();
+  tandaiGrupSiswa(v);
+  if (v === 'dashboard') { muatMutasiDashboard(); if (guru.length && typeof muatJurnalDashboard === 'function') muatJurnalDashboard(); if (adalahAdmin() && typeof muatSiswaDashboard === 'function') muatSiswaDashboard(); }
   if (v === 'absensi' && typeof muatAbsensi === 'function') muatAbsensi();
   if (v === 'arsip' && typeof muatArsip === 'function') muatArsip();
   if (v === 'jurnal' && typeof muatJurnal === 'function') muatJurnal();
@@ -557,6 +615,66 @@ function renderBarMutasi() {
   const keAkhir = () => { g.scrollLeft = g.scrollWidth; perbarui(); };
   requestAnimationFrame(keAkhir);
   setTimeout(() => { if (g.scrollLeft === 0 && g.scrollWidth > g.clientWidth) keAkhir(); }, 300);
+}
+
+/* ---------- Database siswa (khusus admin): diagram balok L/P/total + jumlah per rombel ---------- */
+const WARNA_SISWA = { l: '#1F6B4F', p: '#86C2A9', total: '#E3A72F' };
+
+async function muatSiswaDashboard() {
+  const kartu = $('#kartu-siswa');
+  if (!kartu) return;
+  kartu.classList.remove('hidden');
+  $('#ds-jumlah').textContent = 'Memuat…';
+  const [s, k] = await Promise.all([
+    sb.from('siswa').select('kelas_id,jenis_kelamin,status'),
+    sb.from('kelas').select('id,nama,urut'),
+  ]);
+  if (s.error || k.error) {
+    console.error(s.error || k.error);
+    $('#bar-siswa').innerHTML = '<p class="text-[12px] text-ink/60">Data siswa belum bisa dimuat.</p>';
+    $('#ds-kelas').innerHTML = '';
+    $('#ds-jumlah').textContent = '';
+    return;
+  }
+  // Hitung siswa AKTIF (yang sedang bersekolah), bukan lulusan/nonaktif
+  const jk = (d) => { const j = (d.jenis_kelamin || '').toLowerCase(); return j.includes('perempuan') || j === 'p' ? 'p' : 'l'; };
+  let L = 0, P = 0;
+  const perKelas = new Map((k.data || []).map((kl) => [String(kl.id), { nama: kl.nama, urut: kl.urut ?? 0, l: 0, p: 0 }]));
+  (s.data || []).filter((d) => d.status === 'aktif').forEach((d) => {
+    const o = perKelas.get(String(d.kelas_id));
+    if (!o) return;
+    if (jk(d) === 'p') { P++; o.p++; } else { L++; o.l++; }
+  });
+  const total = L + P;
+  $('#ds-jumlah').textContent = total ? total + ' siswa aktif' : '';
+  // Balok dari tepi paling kiri, berbentuk kotak; label + angka di kanan baris
+  const bar = (label, n, warna) => `
+    <div class="flex items-center gap-4">
+      <div class="flex-1 h-6 bg-ink/10">
+        <div class="h-full" style="width:${total && n ? Math.max((n / total) * 100, 2) : 0}%;background:${warna}"></div>
+      </div>
+      <span class="w-24 shrink-0 text-right text-sm font-semibold">${label}</span>
+      <span class="w-10 shrink-0 text-right text-sm font-bold tabular-nums">${n}</span>
+    </div>`;
+  $('#bar-siswa').innerHTML = total
+    ? `<div class="flex h-full flex-col justify-center gap-4">${bar('Laki-laki', L, WARNA_SISWA.l)}${bar('Perempuan', P, WARNA_SISWA.p)}${bar('Total', total, WARNA_SISWA.total)}</div>`
+    : '<p class="text-[12px] text-ink/60">Belum ada data siswa aktif.</p>';
+  const daftar = [...perKelas.values()].filter((o) => o.l + o.p > 0).sort((a, b) => a.urut - b.urut || a.nama.localeCompare(b.nama, 'id'));
+  $('#ds-kelas').innerHTML = daftar.length
+    ? `<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 gap-2 max-h-[14rem] overflow-y-auto chat-scroll pr-1">${daftar.map((o) => `
+      <div class="rounded-lg border border-ink/10 px-3 py-2">
+        <p class="text-[12px] font-extrabold text-ink/60">Rombel ${esc(o.nama)}</p>
+        <p class="mt-1 flex items-center gap-1.5 text-[12px] font-semibold tabular-nums">
+          <span class="size-2 shrink-0" style="background:${WARNA_SISWA.l}"></span>${o.l} Laki-laki
+        </p>
+        <p class="mt-0.5 flex items-center gap-1.5 text-[12px] font-semibold tabular-nums">
+          <span class="size-2 shrink-0" style="background:${WARNA_SISWA.p}"></span>${o.p} Perempuan
+        </p>
+        <p class="mt-0.5 flex items-center gap-1.5 text-[12px] font-bold tabular-nums">
+          <span class="size-2 shrink-0" style="background:${WARNA_SISWA.total}"></span>${o.l + o.p} siswa
+        </p>
+      </div>`).join('')}</div>`
+    : '<p class="text-[12px] text-ink/60">Belum ada data siswa aktif per rombel.</p>';
 }
 
 /* ---------- Chat agen AI ---------- */
