@@ -53,6 +53,21 @@ Deno.serve(async (req) => {
   const { data: { user }, error: authError } = await authClient.auth.getUser();
   if (authError || !user) return reply({ error: 'Silakan masuk kembali.' }, 401);
 
+  // Akun harus masih aktif di profiles. Tanpa ini, akun yang sudah dinonaktifkan
+  // tetap bisa memakai layanan geocoding selama JWT-nya belum kedaluwarsa.
+  const { data: profil, error: profilError } = await authClient
+    .from('profiles')
+    .select('role,is_active')
+    .eq('id', user.id)
+    .maybeSingle();
+  if (profilError) {
+    console.error('Gagal memeriksa status akun:', profilError.message);
+    return reply({ error: 'Tidak dapat memeriksa status akun.' }, 500);
+  }
+  if (!profil || profil.is_active !== true) {
+    return reply({ error: 'Akun belum aktif. Hubungi admin sekolah.' }, 403);
+  }
+
   const serviceClient = createClient(url, serviceKey);
   const { data: staf, error: stafError } = await serviceClient
     .from('staf')

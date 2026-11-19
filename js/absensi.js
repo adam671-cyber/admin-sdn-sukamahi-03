@@ -7,11 +7,14 @@ let absensiGuru = [], absensiMap = new Map(), absensiLibur = new Map();
 
 const merahManual = () => { try { return JSON.parse(localStorage.getItem('tanggal_merah') || '{}'); } catch { return {}; } };
 const simpanManual = (o) => localStorage.setItem('tanggal_merah', JSON.stringify(o));
+/* Fallback localStorage hanya untuk kondisi tabel belum dimigrasi — bukan untuk
+   menyamarkan penolakan RLS (mis. guru mencoba mengubah tanggal merah). */
+const tabelBelumAda = (e) => !!e && (e.code === '42P01' || /does not exist|schema cache|Could not find the table/i.test(e.message || ''));
 
 const blnVal = () => $('#a-bulan').value || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }).slice(0, 7);
-/* Jumlah hari per bulan via tabel (rumus Date(new Date(y, m, 0)) terbukti meleset
-   di V8 untuk Oktober — mengembalikan 31 padahal Oktober 30 hari). */
-const HARI_BULAN = [31, 28, 31, 30, 31, 30, 31, 31, 30, 30, 30, 31];
+/* Jumlah hari per bulan (Februari ditangani terpisah untuk tahun kabisat).
+   Urutan: Jan..Des. Oktober = 31 hari. */
+const HARI_BULAN = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 const hariDiBulan = (bln) => {
   const [y, m] = bln.split('-').map(Number);
   if (m === 2) return y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0) ? 29 : 28;
@@ -151,6 +154,7 @@ $('#m-simpan').onclick = async () => {
   // Simpan ke database (admin). Bila tabel belum ada, jatuh ke localStorage.
   const { error } = await sb.from('absensi_libur').upsert({ tanggal, keterangan: ket }, { onConflict: 'tanggal' });
   if (error) {
+    if (!tabelBelumAda(error)) return alert('Gagal menyimpan tanggal merah: ' + error.message);
     const semua = merahManual();
     semua[tanggal] = ket;
     simpanManual(semua);
@@ -164,6 +168,7 @@ $('#m-daftar').onclick = async (e) => {
   if (!confirm('Hapus tanggal merah ' + k + '?')) return;
   const { error } = await sb.from('absensi_libur').delete().eq('tanggal', k);
   if (error) {
+    if (!tabelBelumAda(error)) return alert('Gagal menghapus tanggal merah: ' + error.message);
     const semua = merahManual();
     delete semua[k];
     simpanManual(semua);

@@ -472,14 +472,13 @@ create policy "setelan baca" on public.setelan for select to authenticated
 create policy "setelan admin tulis" on public.setelan for all to authenticated
   using (public.is_admin()) with check (public.is_admin());
 
--- absensi_libur: baca staf aktif, tulis admin atau guru aktif.
+-- absensi_libur: baca staf aktif, tulis HANYA admin.
 drop policy if exists "libur baca" on public.absensi_libur;
 drop policy if exists "libur tulis" on public.absensi_libur;
 create policy "libur baca" on public.absensi_libur for select to authenticated
   using (public.am_active());
 create policy "libur tulis" on public.absensi_libur for all to authenticated
-  using (public.is_admin() or (public.am_active() and public.my_role() = 'guru'))
-  with check (public.is_admin() or (public.am_active() and public.my_role() = 'guru'));
+  using (public.is_admin()) with check (public.is_admin());
 
 -- siswa: baca admin / guru wali (lihat fungsi), tulis admin.
 drop policy if exists "siswa baca" on public.siswa;

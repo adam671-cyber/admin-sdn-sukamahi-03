@@ -523,6 +523,8 @@ function asBuatPdf(st, meta, sel) {
   const hTersedia = H - 27 - 62; // 62 ≈ RESUME (16) + celah (15) + TTD (30) + margin
   const minCell = Math.min(4, Math.max(2.6, hTersedia / nRows));
 
+  const posisi = new Map();
+  let atas = 0;
   doc.autoTable({
     startY: 27, theme: 'grid', head, body, columnStyles, margin: { left: ML, right: MR },
     styles: { font: 'helvetica', fontSize: 5, cellPadding: 0.4, halign: 'center', valign: 'middle', lineColor: [0, 0, 0], lineWidth: 0.08, minCellHeight: minCell, textColor: [0, 0, 0] },
@@ -550,7 +552,33 @@ function asBuatPdf(st, meta, sel) {
         else if (v === 'A') d.cell.styles.fillColor = AS_WARNA_PDF.A;
       }
     },
+    didDrawCell: (d) => {
+      if (d.section !== 'body' || d.row.index !== 0) return;
+      // Kolom tanggal mulai indeks 5 (No, NIS, NISN, Nama, L/P = 0–4)
+      if (d.column.index >= 5 && d.column.index < 5 + n) posisi.set(d.column.index, { x: d.cell.x, w: d.cell.width });
+      atas = d.cell.y;
+    },
   });
+  // Keterangan vertikal kolom tanggal merah — meniru PDF absensi pegawai:
+  // label melintang di tengah tinggi kolom merah (dari baris siswa pertama sampai
+  // baris JUMLAH), dengan garis tepi kiri-kanan kolom. Untuk cetak & unduh PDF.
+  {
+    const bawah = doc.lastAutoTable.finalY;
+    if (doc.getNumberOfPages() === 1) {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(5.5); doc.setTextColor(0);
+      for (let d = 1; d <= n; d++) {
+        const tgl = tglKey(asBulan, d);
+        if (!asMerah(tgl)) continue;
+        const p = posisi.get(4 + d);
+        if (!p) continue;
+        const label = asLiburLabel(tgl) || 'Hari Libur';
+        doc.setFillColor(...MERAH); doc.rect(p.x, atas, p.w, bawah - atas, 'F');
+        doc.setDrawColor(0); doc.setLineWidth(0.1);
+        doc.line(p.x, atas, p.x, bawah); doc.line(p.x + p.w, atas, p.x + p.w, bawah);
+        doc.text(label, p.x + p.w / 2 + 0.7, (atas + bawah) / 2 + doc.getTextWidth(label) / 2, { angle: 90 });
+      }
+    }
+  }
   // RESUME (blok rekap presensi di tengah antara posisi tanda tangan kepsek dan wali kelas)
   let yB = doc.lastAutoTable.finalY + 5;
   if (yB > H - 40) { doc.addPage(); yB = 12; }

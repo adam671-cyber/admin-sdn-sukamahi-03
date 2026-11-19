@@ -19,23 +19,25 @@ const adalahAdmin = () => peran() === 'admin';
 const bolehAbsensiSiswa = () => adalahAdmin() || peran() === 'guru';
 
 /* ---------- SheetJS (library Excel) bersama ----------
-   Halaman memuat xlsx dari CDN resmi; bila gagal (offline/terblokir),
-   muatXlsx() memuatnya on-demand saat fitur Excel dipakai. Dipakai mutasi.js, siswa.js, dll. */
-const XLSX_CDN = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+   Dimuat dari vendor/ (di-host sendiri + SRI di index.html). Bila tag utama gagal,
+   muatXlsx() memuat ulang on-demand saat fitur Excel dipakai. Dipakai mutasi.js, siswa.js, dll. */
+const XLSX_URL = 'vendor/xlsx.full.min.js';
+const XLSX_SRI = 'sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT';
 let xlsxJanji = null;
 function muatXlsx() {
   if (typeof XLSX !== 'undefined') return Promise.resolve(XLSX);
   if (xlsxJanji) return xlsxJanji;
   xlsxJanji = new Promise((selesai, gagal) => {
     const s = document.createElement('script');
-    s.src = XLSX_CDN;
+    s.src = XLSX_URL;
+    s.integrity = XLSX_SRI;
     s.onload = () => (typeof XLSX !== 'undefined' ? selesai(XLSX) : gagal(new Error('library Excel gagal diinisialisasi')));
-    s.onerror = () => { xlsxJanji = null; gagal(new Error('gagal memuat library Excel dari CDN — periksa koneksi internet')); };
+    s.onerror = () => { xlsxJanji = null; gagal(new Error('gagal memuat library Excel — muat ulang halaman')); };
     document.head.appendChild(s);
   });
   return xlsxJanji;
 }
-const galatXlsx = (e) => 'Library Excel belum termuat: ' + ((e && e.message) || e) + '. Periksa koneksi internet lalu coba lagi.';
+const galatXlsx = (e) => 'Library Excel belum termuat: ' + ((e && e.message) || e) + '. Muat ulang halaman lalu coba lagi.';
 
 /* Keluar yang tidak bisa nyangkut: signOut boleh gagal, tapi
    sesi lokal tetap dibersihkan dan halaman tetap pindah. */

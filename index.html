@@ -3,7 +3,7 @@
 
 <head>
   <meta http-equiv="Content-Security-Policy" content="default-src 'self';
-               script-src  'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.sheetjs.com;
+               script-src  'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com;
                style-src   'self' 'unsafe-inline' https://fonts.googleapis.com;
                font-src    https://fonts.gstatic.com;
                img-src     'self' data: blob: https://*.supabase.co;
@@ -790,11 +790,13 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"
     integrity="sha384-fCAW/rDWORTbQXSiB7mOg0QtQ5c+r0f544y6XoKjuVva0nMBlCpNUjiFeG5iMdS3"
     crossorigin="anonymous"></script>
-  <!-- SheetJS dari CDN resmi: 0.18.5 (cdnjs) terdampak CVE-2023-30533 & CVE-2024-22363 -->
-  <!-- integrity dihapus: hash lama tidak cocok dengan file CDN (resource diblokir).
-       Sumber tetap terkunci lewat CSP script-src cdn.sheetjs.com (pola sama dgn html2canvas). -->
-  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <!-- SheetJS & html2canvas di-host sendiri (vendor/) + SRI. Dengan begitu tidak
+       ada skrip parser Excel dari CDN pihak ketiga yang bisa berubah diam-diam.
+       Perbarui hash bila versi library dinaikkan. -->
+  <script src="vendor/xlsx.full.min.js"
+    integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT"></script>
+  <script src="vendor/html2canvas.min.js"
+    integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H"></script>
   <script src="js/guru.js"></script>
   <script src="js/berkas.js"></script>
   <script src="js/logo.js"></script>

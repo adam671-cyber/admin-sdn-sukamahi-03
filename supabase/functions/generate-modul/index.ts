@@ -57,6 +57,15 @@ async function terautorisasi(req: Request): Promise<boolean> {
     );
     const { data: { user } } = await sbAuth.auth.getUser();
     if (!user) return false;
+    // Akun yang dinonaktifkan admin tidak boleh memakai kuota Gemini meskipun
+    // JWT-nya masih valid (Supabase Auth tidak tahu kolom profiles.is_active).
+    const { data: profil, error: profilErr } = await sbAuth
+      .from('profiles')
+      .select('role,is_active')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (profilErr || !profil || profil.is_active !== true) return false;
+    if (!['admin', 'kepsek', 'guru', 'pegawai'].includes(profil.role)) return false;
     // Hanya staf terdaftar yang boleh memakai kuota Gemini lewat jalur JWT —
     // tanpa ini akun apa pun yang login bisa menguras kuota/biaya API.
     const { data: staf } = await sbAuth.from('staf').select('user_id').eq('user_id', user.id).maybeSingle();
