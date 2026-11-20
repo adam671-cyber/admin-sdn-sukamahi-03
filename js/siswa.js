@@ -77,6 +77,7 @@ function sRenderData() {
     <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-end mb-3">
       <button data-saksi="tambah" class="${S_BTN} w-full sm:w-auto">+ Tambah Siswa</button>
       <button data-saksi="batch" class="${S_BTN_O} w-full sm:w-auto">Upload Batch Excel</button>
+      <button data-saksi="unduh" title="Unduh data siswa per rombel (sheet per kelas + rekap semua) dalam satu file .xlsx" class="${S_BTN_O} w-full sm:w-auto">Unduh Data Excel</button>
       <button data-saksi="hapus-batch" class="col-span-2 sm:col-span-1 w-full sm:w-auto rounded-lg border border-red-600 text-red-600 text-xs font-semibold px-3 py-1.5 hover:bg-red-600 hover:text-white">Hapus per Rombel</button>
       <input id="ds-cari" type="search" value="${esc(sCari)}" placeholder="Cari nama / NIS / NISN" class="${S_INP} col-span-2 sm:col-span-1 w-full sm:w-auto sm:min-w-[14rem] sm:ml-auto">
       <select id="ds-filter" class="${S_INP} col-span-2 sm:col-span-1 w-full sm:w-auto">${opsiKelas}</select>
@@ -247,6 +248,42 @@ async function sUnduhTemplate() {
   const wb = X.utils.book_new();
   X.utils.book_append_sheet(wb, ws, 'Siswa');
   X.writeFile(wb, 'Template_Siswa_SDNSukamahi03.xlsx');
+}
+
+/* ---------- Unduh data siswa (per rombel, satu file Excel) ---------- */
+async function sUnduhExcel() {
+  let X;
+  try { X = await muatXlsx(); } catch (e) { return alert(galatXlsx(e)); }
+  const jkS = (v) => (v === 'Laki-laki' ? 'L' : v === 'Perempuan' ? 'P' : '');
+  // NIS/NISN/NIK/No HP dipaksa String agar sel Excel bertipe teks (angka 0 di depan tidak hilang)
+  const barisSiswa = (daftar) => daftar.map((s, i) =>
+    [i + 1, String(s.nama ?? ''), jkS(s.jenis_kelamin), String(s.nis ?? ''), String(s.nisn ?? ''), String(s.tempat_lahir ?? ''), String(s.tgl_lahir ?? ''), String(s.nik ?? ''), String(s.agama ?? ''), String(s.alamat ?? ''), String(s.no_hp_ortu ?? ''), String(s.nama_ayah ?? ''), String(s.nama_ibu ?? ''), String(s.status ?? '')]);
+  const KOLOM = ['No', 'Nama Siswa', 'L/P', 'NIS', 'NISN', 'Tempat Lahir', 'Tanggal Lahir', 'NIK', 'Agama', 'Alamat', 'No Hp. Orang Tua', 'Nama Ayah', 'Nama Ibu', 'Status'];
+  const wb = X.utils.book_new();
+  // Sheet per rombel mengikuti urutan tabel kelas; siswa dalam satu rombel urut nama (sama seperti tabel di layar)
+  sKelas.forEach((k) => {
+    const isi = sSiswa.filter((s) => String(s.kelas_id) === String(k.id)).sort((a, b) => String(a.nama || '').localeCompare(String(b.nama || ''), 'id'));
+    if (!isi.length) return;
+    const ws = X.utils.aoa_to_sheet([KOLOM, ...barisSiswa(isi)]);
+    ws['!cols'] = [{ wch: 4 }, { wch: 26 }, { wch: 5 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 20 }, { wch: 10 }, { wch: 28 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 8 }];
+    X.utils.book_append_sheet(wb, ws, String(k.nama).replace(/[\\/?*[\]:]/g, '').slice(0, 31) || 'rombel');
+  });
+  // Sheet "Semua": seluruh siswa (aktif/pindah/lulus) dikelompokkan per rombel, urut nama
+  if (sSiswa.length) {
+    const aoa = [KOLOM];
+    let no = 0;
+    sKelas.forEach((k) => {
+      const isi = sSiswa.filter((s) => String(s.kelas_id) === String(k.id)).sort((a, b) => String(a.nama || '').localeCompare(String(b.nama || ''), 'id'));
+      if (!isi.length) return;
+      no += isi.length;
+      aoa.push([`Rombel ${k.nama} — ${isi.length} siswa`, '', '', '', '', '', '', '', '', '', '', '', '']);
+      aoa.push(...barisSiswa(isi).map((r, i) => [no - isi.length + i + 1].concat(r.slice(1))));
+    });
+    const ws2 = X.utils.aoa_to_sheet(aoa);
+    ws2['!cols'] = [{ wch: 4 }, { wch: 26 }, { wch: 5 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 20 }, { wch: 10 }, { wch: 28 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 8 }];
+    X.utils.book_append_sheet(wb, ws2, 'Semua');
+  }
+  X.writeFile(wb, 'DataSiswa_SDNSukamahi03.xlsx');
 }
 
 function sParseTgl(v) {
@@ -470,6 +507,7 @@ document.addEventListener('click', (e) => {
   else if (t.dataset.saksi === 'edit') sFormSiswa(id);
   else if (t.dataset.saksi === 'hapus') sHapusSiswa(id);
   else if (t.dataset.saksi === 'batch') sBukaBatch();
+  else if (t.dataset.saksi === 'unduh') sUnduhExcel();
   else if (t.dataset.saksi === 'hapus-batch') sHapusBatch();
   else if (t.dataset.skelas) sAksiKelas(t.dataset.skelas, id);
   else if (t.dataset.snaik) sJalankanNaik();

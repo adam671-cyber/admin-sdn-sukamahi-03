@@ -1,5 +1,6 @@
 /* Absensi Siswa per Kelas (admin + guru wali): grid 1–31 dengan kode H/S/I/A,
-   H diturunkan (hari efektif tanpa catatan — tidak disimpan di DB; DB hanya S/I/A),
+   H diturunkan (hari efektif tanpa catatan, tidak disimpan di DB; DB hanya S/I/A),
+   seluruh daftar siswa urut NIS (NIPD), bukan abjad nama,
    tanggal merah (Sabtu-Minggu + libur nasional + manual via absensi_libur),
    rekap jumlah & persentase otomatis; setiap perubahan sel (H/S/I/A) tersimpan otomatis.
    Akses ditegakkan RLS migrasi 014: guru hanya rombel binaan (kelas_wali_saya()).
@@ -19,7 +20,19 @@ const AS_WARNA = { S: 'bg-amber-200', I: 'bg-sky-200', A: 'bg-red-300 text-red-9
 const asKunci = (sid, tgl) => sid + '|' + tgl;
 const asBulanIni = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }).slice(0, 7);
 const asHariIni = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
-const asSiswaAktif = () => asSiswa.filter((s) => String(s.kelas_id) === String(asRombel) && s.status === 'aktif');
+/* Urutan absensi (grid, rekap, PDF & Excel) berdasarkan NIS (NIPD), bukan abjad nama.
+   NIS diperbandingkan numerik bila keduanya berupa angka; tanpa NIS selalu di bawah. */
+const asCmpNis = (a, b) => {
+  const an = a ? String(a.nis ?? '').trim() : '';
+  const bn = b ? String(b.nis ?? '').trim() : '';
+  if (!an && !bn) return 0;
+  if (!an) return 1;
+  if (!bn) return -1;
+  const na = Number(an), nb = Number(bn);
+  if (!isNaN(na) && !isNaN(nb) && an.match(/^\d+$/) && bn.match(/^\d+$/)) return na - nb;
+  return an < bn ? -1 : an > bn ? 1 : 0;
+};
+const asSiswaAktif = () => asSiswa.filter((s) => String(s.kelas_id) === String(asRombel) && s.status === 'aktif').sort(asCmpNis);
 const asMsgGalat = (e, prefix) => (prefix || 'Gagal memuat absensi siswa') + ': ' + ((e && e.code === '42P01') ? 'tabel belum ada — jalankan migrasi 014' : (e.message || e));
 
 /* Cutoff: batas tanggal sel yang masih boleh diisi — bulan lampau = seluruh bulan;
@@ -774,7 +787,7 @@ async function asUnduhExcelSemua() {
   const wb = X.utils.book_new();
   const rekapBaris = [['Rombel', 'Siswa', 'L', 'P', 'Hari Efektif', 'H', 'S', 'I', 'A', 'Prosentase Kehadiran']];
   asKelas.forEach((k) => {
-    const daftar = asSiswa.filter((s) => String(s.kelas_id) === String(k.id) && s.status === 'aktif');
+    const daftar = asSiswa.filter((s) => String(s.kelas_id) === String(k.id) && s.status === 'aktif').sort(asCmpNis);
     const sel = perKelas.get(String(k.id)) || new Map();
     const st = asStatistik(daftar, sel, asBulan);
     X.utils.book_append_sheet(wb, asBuatSheet(X, st, asMetaOutput(k), sel), String(k.nama).replace(/[\\/?*[\]:]/g, '').slice(0, 31) || 'rombel');

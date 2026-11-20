@@ -189,16 +189,6 @@
         background: #f1f6fe;
     }
 
-    .badge-admin {
-        background: linear-gradient(135deg, #f7b955 0%, #e79e2b 100%);
-        color: #4a3208;
-        font-size: 10px;
-        font-weight: 700;
-        padding: 3px 7px;
-        border-radius: 6px;
-        margin-left: 4px;
-    }
-
     .chip-user {
         display: flex; align-items: center; gap: 6px;
         background: #f4f8ff; border: 1px solid #e4ecf8;
@@ -222,15 +212,6 @@
                 <i class="fa-solid fa-clock-rotate-left"></i>
                 <span>Riwayat Modul & Kuirkulum</span>
             </a>
-
-            <!-- Menu Khusus Admin -->
-            {% if session.get('username') == 'admin' %}
-            <a href="/admin/users" class="nav-link-custom d-flex align-items-center gap-1">
-                <i class="fa-solid fa-user-shield"></i>
-                <span>Kelola User</span>
-                <span class="badge-admin">ADMIN</span>
-            </a>
-            {% endif %}
 
             <!-- Identitas User Logged In -->
             <span class="chip-user d-none d-md-flex">
@@ -378,7 +359,6 @@
 <button type="button" onclick="exportHTMLToWord()" class="btn btn-generate fw-bold px-3 py-2 shadow-sm">
     <i class="fa-solid fa-file-word me-2"></i>Simpan Word (.docx)
 </button>
-        </form>
 
         <!-- Tombol Cetak / Simpan PDF -->
         <button onclick="window.print()" class="btn btn-danger fw-bold px-3 py-2 shadow-sm">
@@ -463,40 +443,6 @@
         });
         document.getElementById('output-content').appendChild(gambarContainer);
     }
-
-function downloadWordDoc() {
-    // 1. Ambil seluruh HTML di dalam elemen output-card (termasuk Kop Surat, Isi RPP, & Tabel Tanda Tangan)
-    var cardContent = document.getElementById("output-card").innerHTML;
-
-    // 2. Buat Header Dokumen Word dengan Ukuran Kertas F4 (21.59cm x 33cm) & Font Times New Roman
-    var header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>" +
-        "<head><meta charset='utf-8'><style>" +
-        "@page Section1 { size: 21.59cm 33.0cm; margin: 2.54cm 2.54cm 2.54cm 2.54cm; mso-page-orientation: portrait; }" +
-        "div.Section1 { page: Section1; }" +
-        "body { font-family: 'Times New Roman', serif; font-size: 12pt; color: #000; }" +
-        "table { width: 100%; border-collapse: collapse; }" +
-        ".signature-table td { border: none !important; width: 50%; vertical-align: top; padding: 5px; }" +
-        "</style></head><body><div class='Section1'>";
-    
-    var footer = "</div></body></html>";
-    
-    // 3. Gabungkan seluruh HTML
-    var sourceHTML = header + cardContent + footer;
-
-    // 4. Unduh sebagai file .doc / .docx
-    var blob = new Blob(['\ufeff', sourceHTML], {
-        type: 'application/msword'
-    });
-    
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = 'RPP_SDN_Sukamahi_03.doc';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-}
 </script>
                 {% endif %}
             </div>
