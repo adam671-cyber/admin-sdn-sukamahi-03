@@ -1,7 +1,10 @@
 // Deploy: supabase functions deploy generate-modul
 // Secrets: supabase secrets set GEMINI_API_KEY=... AI_MODEL=gemini-3.7-flash
 //          supabase secrets set PORTAL_SECRET=<sama dengan env PORTAL_SECRET di Flask>
+//          (opsional, prioritas primer) supabase secrets set AGNES_API_KEY=... AGNES_BASE_URL=... AGNES_MODEL=agnes-3.0-flash
 // Edge Function untuk generate modul/RPP - dipanggil oleh Python Flask (Vercel)
+// Teks: provider primer = Agnes AI (jika AGNES_API_KEY terset), fallback = Gemini.
+// Gambar: tetap Gemini (generateImage), key Gemini hanya di Supabase Secrets.
 // Autentikasi: menerima (1) JWT user Supabase yang valid, atau (2) header
 // X-Portal-Key yang cocok dengan secret PORTAL_SECRET (skenario Flask server-to-server).
 
@@ -95,9 +98,58 @@ Deno.serve(async (req: Request) => {
       return Response.json({ error: 'Prompt diperlukan' }, { status: 400, headers });
     }
 
+    // ==== PROVIDER PRIMER: Agnes AI (OpenAI-compatible) ====
+    // Jika AGNES_API_KEY terkonfigurasi, teks digenerate lewat Agnes.
+    // Parameter `model` dari Flask diabaikan — model diambil dari secret AGNES_MODEL.
+    const agnesKey = (Deno.env.get('AGNES_API_KEY') ?? '').trim();
+    const agnesBase = (Deno.env.get('AGNES_BASE_URL') ?? 'https://agnes.ai/v1').replace(/\/+$/, '');
+    const agnesModel = Deno.env.get('AGNES_MODEL') || 'agnes-3.0-flash';
+
+    if (agnesKey && !generateImage) {
+      const response = await fetch(`${agnesBase}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${agnesKey}`,
+        },
+        body: JSON.stringify({
+          model: agnesModel,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: temperature ?? 0.7,
+          max_tokens: maxOutputTokens ?? 4096,
+        }),
+      });
+      const ctype = response.headers.get('content-type') ?? '';
+      const raw = await response.text();
+      let data: any;
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        // HTML/konten non-JSON = base URL kemungkinan menunjuk halaman web, bukan API
+        return Response.json({
+          error: `Agnes membalas non-JSON (${ctype}). Cek AGNES_BASE_URL — pastikan menunjuk ke endpoint API (bukan situs web).`,
+          status: response.status,
+        }, { status: 500, headers });
+      }
+      if (!response.ok) {
+        return Response.json({
+          error: data?.error?.message || data?.message || `Agnes API error (${response.status})`,
+          status: response.status,
+        }, { status: response.status, headers });
+      }
+      // Toleransi format: OpenAI klasik (choices[].message.content),
+      // gateway yang membalas `choices[].text`, atau payload sederhana `{ text }`.
+      const text = data?.choices?.[0]?.message?.content ?? data?.choices?.[0]?.text ?? data?.text ?? '';
+      if (!text) {
+        return Response.json({ error: 'Agnes tidak menghasilkan teks', details: data }, { status: 500, headers });
+      }
+      return Response.json({ text, model: agnesModel, usage: data?.usage }, { headers });
+    }
+
+    // ==== FALLBACK / GAMBAR: Gemini ====
     const apiKey = Deno.env.get('GEMINI_API_KEY');
     if (!apiKey) {
-      return Response.json({ error: 'GEMINI_API_KEY tidak dikonfigurasi di Supabase Secrets' }, { status: 500, headers });
+      return Response.json({ error: 'GEMINI_API_KEY tidak dikonfigurasi di Supabase Secrets (diperlukan untuk fallback/gambar)' }, { status: 500, headers });
     }
 
     const geminiModel = model || Deno.env.get('AI_MODEL') || 'gemini-3.7-flash';
