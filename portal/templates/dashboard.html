@@ -356,7 +356,7 @@
     
     <div class="d-flex gap-2">
         <!-- Tombol Export Word (.docx) via Backend -->
-<button type="button" onclick="exportHTMLToWord()" class="btn btn-generate fw-bold px-3 py-2 shadow-sm">
+<button type="button" id="btn-simpan-word" onclick="exportHTMLToWord()" class="btn btn-generate fw-bold px-3 py-2 shadow-sm">
     <i class="fa-solid fa-file-word me-2"></i>Simpan Word (.docx)
 </button>
 
@@ -458,6 +458,14 @@ async function exportHTMLToWord() {
         return;
     }
 
+    // Feedback tombol: beri tahu pengguna proses unduhan sedang berjalan
+    var btn = document.getElementById("btn-simpan-word");
+    var labelAsli = btn ? btn.innerHTML : null;
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Mengunduh...';
+    }
+
     // Duplikat elemen agar proses konversi gambar tidak merusak tampilan web
     var cloneElement = cardElement.cloneNode(true);
     var images = cloneElement.getElementsByTagName('img');
@@ -465,6 +473,8 @@ async function exportHTMLToWord() {
     // 2. Konversi setiap gambar ke format Base64 agar tertanam langsung di dokumen Word
     for (var i = 0; i < images.length; i++) {
         var img = images[i];
+        // Gambar base64 (kop logo) sudah tertanam, biarkan apa adanya
+        if (img.src && img.src.indexOf('data:') === 0) continue;
         try {
             var canvas = document.createElement('canvas');
             var ctx = canvas.getContext('2d');
@@ -509,19 +519,62 @@ async function exportHTMLToWord() {
     
     var sourceHTML = header + cardHTML + footer;
 
-    // 4. Download langsung file .doc
+    // 4. Unduh file .doc via Blob
+    var namaFile = 'RPP_SDN_Sukamahi_03.doc';
     var blob = new Blob(['\ufeff', sourceHTML], {
-        type: 'application/msword;charset=utf-8'
+        type: 'application/msword'
     });
-    
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = 'RPP_SDN_Sukamahi_03.doc';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+
+    var berhasil = false;
+    try {
+        if (navigator && navigator.msSaveBlob) {
+            // Peramban lama (IE / Edge kuno)
+            navigator.msSaveBlob(blob, namaFile);
+            berhasil = true;
+        } else if (window.URL && URL.createObjectURL) {
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = namaFile;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            // PENTING: revoke ditunda, JANGAN langsung setelah a.click().
+            // Bila blob URL dihancurkan terlalu cepat, unduhan bisa dibatalkan
+            // peramban (terutama Firefox) sehingga file tidak pernah muncul.
+            setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+            berhasil = true;
+        }
+    } catch (err) {
+        console.error("Gagal membuat unduhan Word:", err);
+    }
+
+    if (!berhasil) {
+        // Fallback: buka dokumen di tab baru agar tetap bisa disimpan manual
+        var win = window.open('', '_blank');
+        if (win) {
+            win.document.write(sourceHTML);
+            win.document.close();
+            alert('Unduhan otomatis tidak didukung peramban ini. Dokumen dibuka di tab baru - salin ke Microsoft Word atau gunakan Cetak (Ctrl+P).');
+        } else {
+            alert('Gagal unduh file Word. Gunakan tombol Cetak/PDF sebagai alternatif.');
+        }
+    }
+
+    // Pulihkan tampilan tombol
+    if (btn) {
+        if (berhasil) {
+            btn.innerHTML = '<i class="fa-solid fa-check me-2"></i>Tersimpan';
+            setTimeout(function () {
+                btn.disabled = false;
+                btn.innerHTML = labelAsli;
+            }, 2000);
+        } else {
+            btn.disabled = false;
+            btn.innerHTML = labelAsli;
+        }
+    }
 }
 
 </script>
