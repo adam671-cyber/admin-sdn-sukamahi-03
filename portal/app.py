@@ -95,8 +95,10 @@ def _post_edge(payload, timeout=240):
         headers={
             "Authorization": "Bearer " + SUPABASE_ANON_KEY,
             "Content-Type": "application/json",
-            # Rahasia bersama Flask <-> Edge Function (env PORTAL_SECRET di kedua sisi)
-            "X-Portal-Key": os.getenv("PORTAL_SECRET", ""),
+            # Rahasia bersama Flask <-> Edge Function (env PORTAL_SECRET di kedua sisi).
+            # .strip() memotong newline terselubung di nilai env (mis. hasil paste
+            # di dashboard Vercel) — header HTTP tidak boleh memuat character krusial.
+            "X-Portal-Key": os.getenv("PORTAL_SECRET", "").strip(),
         },
         json=payload,
         timeout=timeout
