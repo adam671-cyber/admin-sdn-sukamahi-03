@@ -32,3 +32,7 @@ build/
 
 # Build artifacts
 *.spec
+
+# Dokumen pribadi (audit/PRD, bukan bagian dari kode)
+LAPORAN-AUDIT.md
+PRD-surat-mutasi-ttd.md

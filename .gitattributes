@@ -1,0 +1,5 @@
+# File yang diverifikasi dengan Subresource Integrity (SRI) harus byte-identik,
+# karena hash sha384 dihitung dari isi file apa adanya. Tanpa aturan ini,
+# core.autocrlf=true di Windows mengubah LF -> CRLF saat checkout sehingga
+# integritas di index.html gagal dan library tidak dimuat.
+vendor/*.js -text

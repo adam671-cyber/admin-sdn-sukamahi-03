@@ -10,6 +10,18 @@ const S_BTN_O = 'rounded-lg border border-hijau text-hijau text-xs font-semibold
 const S_INP = 'rounded-lg border border-ink/20 px-3 py-1.5 text-sm';
 const sGalat = (e, p) => p + ': ' + (e && e.code === '23505' ? 'NISN sudah dipakai siswa lain.' : (e.message || e));
 const sNorm = (s) => String(s ?? '').toLowerCase().replace(/\s+/g, '');
+/* Urutan data siswa berdasarkan NIS (NIPD), bukan abjad nama — mengikuti asCmpNis di absensi-siswa.js:
+   NIS numerik bila keduanya angka; tanpa NIS selalu di bawah, lalu diurutkan abjad. */
+const sCmpNis = (a, b) => {
+  const an = a ? String(a.nis ?? '').trim() : '';
+  const bn = b ? String(b.nis ?? '').trim() : '';
+  if (!an && !bn) return 0;
+  if (!an) return 1;
+  if (!bn) return -1;
+  const na = Number(an), nb = Number(bn);
+  if (!isNaN(na) && !isNaN(nb) && an.match(/^\d+$/) && bn.match(/^\d+$/)) return na - nb;
+  return an < bn ? -1 : an > bn ? 1 : 0;
+};
 
 async function sAmbilSemua(tabel, urut) {
   const out = [];
@@ -29,7 +41,7 @@ async function muatSiswa() {
   try {
     const [k, s, g, st] = await Promise.all([
       sb.from('kelas').select('*').order('urut').order('nama'),
-      sAmbilSemua('siswa', 'nama'),
+      sAmbilSemua('siswa', 'nis, nama'),
       sb.from('guru').select('id,nama').order('nama'),
       sb.from('setelan').select('kunci,nilai'),
     ]);
@@ -101,7 +113,7 @@ function sIsiTabel() {
   const daftar = sSiswa.filter(cocok);
   let html = '', total = 0;
   sKelas.forEach((k) => {
-    const isi = daftar.filter((s) => s.kelas_id === k.id);
+    const isi = daftar.filter((s) => s.kelas_id === k.id).sort(sCmpNis);
     if (!isi.length) return;
     html += `<tr class="bg-hijau/10 font-bold"><td colspan="14" class="px-2 py-1.5">Rombel ${esc(k.nama)} — ${isi.length} siswa</td></tr>`;
     isi.forEach((s, i) => {
@@ -260,20 +272,20 @@ async function sUnduhExcel() {
     [i + 1, String(s.nama ?? ''), jkS(s.jenis_kelamin), String(s.nis ?? ''), String(s.nisn ?? ''), String(s.tempat_lahir ?? ''), String(s.tgl_lahir ?? ''), String(s.nik ?? ''), String(s.agama ?? ''), String(s.alamat ?? ''), String(s.no_hp_ortu ?? ''), String(s.nama_ayah ?? ''), String(s.nama_ibu ?? ''), String(s.status ?? '')]);
   const KOLOM = ['No', 'Nama Siswa', 'L/P', 'NIS', 'NISN', 'Tempat Lahir', 'Tanggal Lahir', 'NIK', 'Agama', 'Alamat', 'No Hp. Orang Tua', 'Nama Ayah', 'Nama Ibu', 'Status'];
   const wb = X.utils.book_new();
-  // Sheet per rombel mengikuti urutan tabel kelas; siswa dalam satu rombel urut nama (sama seperti tabel di layar)
+  // Sheet per rombel mengikuti urutan tabel kelas; siswa dalam satu rombel urut NIS (NIPD), sama seperti tabel di layar
   sKelas.forEach((k) => {
-    const isi = sSiswa.filter((s) => String(s.kelas_id) === String(k.id)).sort((a, b) => String(a.nama || '').localeCompare(String(b.nama || ''), 'id'));
+    const isi = sSiswa.filter((s) => String(s.kelas_id) === String(k.id)).sort(sCmpNis);
     if (!isi.length) return;
     const ws = X.utils.aoa_to_sheet([KOLOM, ...barisSiswa(isi)]);
     ws['!cols'] = [{ wch: 4 }, { wch: 26 }, { wch: 5 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 20 }, { wch: 10 }, { wch: 28 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 8 }];
     X.utils.book_append_sheet(wb, ws, String(k.nama).replace(/[\\/?*[\]:]/g, '').slice(0, 31) || 'rombel');
   });
-  // Sheet "Semua": seluruh siswa (aktif/pindah/lulus) dikelompokkan per rombel, urut nama
+  // Sheet "Semua": seluruh siswa (aktif/pindah/lulus) dikelompokkan per rombel, urut NIS (NIPD)
   if (sSiswa.length) {
     const aoa = [KOLOM];
     let no = 0;
     sKelas.forEach((k) => {
-      const isi = sSiswa.filter((s) => String(s.kelas_id) === String(k.id)).sort((a, b) => String(a.nama || '').localeCompare(String(b.nama || ''), 'id'));
+      const isi = sSiswa.filter((s) => String(s.kelas_id) === String(k.id)).sort(sCmpNis);
       if (!isi.length) return;
       no += isi.length;
       aoa.push([`Rombel ${k.nama} — ${isi.length} siswa`, '', '', '', '', '', '', '', '', '', '', '', '']);
@@ -472,7 +484,7 @@ function sRenderNaik() {
 function sIsiNaik() {
   const box = $('#nk-daftar');
   if (!sNaikAsal) { box.innerHTML = '<p class="text-sm text-ink/60">Pilih rombel asal untuk menampilkan siswa aktif.</p>'; return; }
-  const isi = sSiswa.filter((s) => String(s.kelas_id) === sNaikAsal && s.status === 'aktif');
+  const isi = sSiswa.filter((s) => String(s.kelas_id) === sNaikAsal && s.status === 'aktif').sort(sCmpNis);
   box.innerHTML = isi.length
     ? `<label class="text-sm font-semibold block mb-1"><input type="checkbox" id="nk-semua" checked> Pilih semua (${isi.length} siswa)</label>
        <div class="grid gap-1 sm:grid-cols-2 lg:grid-cols-3 text-sm">${isi.map((s) => `<label><input type="checkbox" class="nk-cek" value="${s.id}" checked> ${esc(s.nama)}</label>`).join('')}</div>`
