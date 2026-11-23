@@ -36,6 +36,11 @@ else:
 # ==========================================
 load_dotenv(os.path.join(env_dir, ".env"))
 load_dotenv()
+# .env di root repo (parent folder portal) — agar development lokal tetap
+# menemukan kredensial apa pun direktori kerja saat menjalankan Flask.
+_root_env = os.path.join(os.path.dirname(base_dir), ".env")
+if os.path.exists(_root_env):
+    load_dotenv(_root_env)
 
 template_dir = os.path.join(base_dir, 'templates')
 static_dir = os.path.join(base_dir, 'static')
@@ -103,19 +108,109 @@ def _post_edge(payload, timeout=240):
         raise RuntimeError(f"Gemini error: {data['error']}")
     return data
 
-def call_gemini_via_supabase(prompt, model="gemini-3.7-flash", temperature=0.7, max_output_tokens=8192):
-    """Panggil Gemini melalui Supabase Edge Function untuk keamanan."""
+def call_gemini_via_supabase(prompt, model="gemini-3.7-flash", temperature=0.7,
+                             max_output_tokens=4096, timeout=140):
+    """Panggil Gemini melalui Supabase Edge Function untuk keamanan.
+
+    timeout default 140 detik: di bawah batas wall-clock worker Supabase
+    (150 detik di plan Free), agar panggilan yang akan di-kill oleh
+    Supabase gagal cepat dan bisa di-retry oleh gemini_retry().
+    """
     return _post_edge({
         "prompt": prompt,
         "model": model,
         "temperature": temperature,
         "maxOutputTokens": max_output_tokens
-    }).get('text', '')
+    }, timeout=timeout).get('text', '')
 
 def generate_gambar_via_supabase(prompt, model="gemini-3.7-flash"):
     """Generate gambar; mengembalikan list data URI (base64)."""
     data = _post_edge({"prompt": prompt, "model": model, "generateImage": True}, timeout=60)
     return [f"data:{im.get('mimeType', 'image/png')};base64,{im['data']}" for im in data.get('images', [])]
+
+# ==========================================
+# 3b. GENERASI PER SECTION + RETRY (ANTI LIMIT WORKER SUPABASE)
+# ==========================================
+# Worker Supabase punya batas wall-clock 150 detik (Free) / 400 detik
+# (Paid). Generasi satu dokumen 8192 token sering menembus batas itu dan
+# worker-nya di-kill dengan error 546 WORKER_RESOURCE_LIMIT. Solusi:
+# dokumen dipecah jadi beberapa section kecil (<= 4096 token) dengan
+# konteks berantai, dan tiap section dipanggil terpisah + retry/backoff,
+# sehingga satu section yang gagal tidak membuang seluruh dokumen.
+
+TOKEN_PER_SEKSI = 4096
+TIMEOUT_PER_PANGGILAN = 140  # < 150 detik agar call yang akan di-kill gagal cepat lalu di-retry
+MAKS_RETRY = 3
+
+
+def _is_retriable(err):
+    """Apakah error Gemini/Edge Function layak dicoba lagi?"""
+    pesan = str(err).lower()
+    markers = (
+        "546", "worker_resource_limit", "429", "500", "502", "503", "504",
+        "timeout", "timed out", "connection",
+    )
+    return any(m in pesan for m in markers)
+
+
+def gemini_retry(prompt, model="gemini-3.7-flash", temperature=0.7,
+                 max_output_tokens=TOKEN_PER_SEKSI):
+    """Panggil Gemini via Edge Function dengan retry + backoff (5s, 20s).
+
+    Hanya error sementara (546/429/5xx/timeout) yang dicoba ulang;
+    error lain (mis. 401 auth) langsung dilempar.
+    """
+    for percobaan in range(1, MAKS_RETRY + 1):
+        try:
+            return call_gemini_via_supabase(
+                prompt, model, temperature, max_output_tokens,
+                timeout=TIMEOUT_PER_PANGGILAN,
+            )
+        except Exception as e:
+            if percobaan == MAKS_RETRY or not _is_retriable(e):
+                raise
+            # Backoff: 5s lalu 20s — cukup panjang untuk "high demand" (503)
+            # tanpa membuat total menunggu seluruh section membengkak.
+            print(f"[portal] retry {percobaan}/{MAKS_RETRY - 1} untuk Gemini: {e}")
+            time.sleep(5 if percobaan == 1 else 20)
+
+
+def generate_dokumen_per_section(daftar_section, model="gemini-3.7-flash", temperature=0.7):
+    """Jalankan daftar section (judul, prompt, max_tokens) berurutan.
+
+    Teks section sebelumnya disisipkan ke prompt section berikutnya sebagai
+    konteks agar dokumen tetap koheren. Return (hasil_gabungan, peringatan).
+    Jika sebuah section gagal habis retry, hasil section yang sudah selesai
+    tetap dikembalikan beserta peringatan bahwa dokumen belum lengkap.
+    """
+    bagian_selesai = []
+    konteks = ""
+    for judul, prompt, maks in daftar_section:
+        if konteks:
+            prompt_penuh = (
+                prompt
+                + "\n\n--- KONTEKS: bagian dokumen yang SUDAH SELESAI "
+                  "(jangan diulang; buat HANYA bagian yang diminta agar tetap koheren)\n"
+                  + konteks
+            )
+        else:
+            prompt_penuh = prompt
+        mulai = time.time()
+        try:
+            teks = gemini_retry(prompt_penuh, model, temperature, maks)
+        except Exception as e:
+            print(f"[portal] section '{judul}' gagal setelah retry ({time.time() - mulai:.0f}s): {e}")
+            peringatan = (
+                f"[PERINGATAN] Dokumen terhenti di bagian '{judul}' setelah {MAKS_RETRY} percobaan. "
+                "Hasil di atas belum lengkap — silakan generate ulang."
+            )
+            if bagian_selesai:
+                return "\n\n".join(bagian_selesai) + "\n\n" + peringatan, peringatan
+            return f"Gagal menghasilkan dokumen. Error: {e}", None
+        print(f"[portal] section '{judul}' selesai dalam {time.time() - mulai:.0f}s")
+        bagian_selesai.append(teks)
+        konteks = "\n\n".join(bagian_selesai)
+    return "\n\n".join(bagian_selesai), None
 
 # ==========================================
 # 4. INISIALISASI FIREBASE CLOUD FIRESTORE
@@ -387,91 +482,229 @@ def dashboard():
             f"Sertakan deskripsi gambar dalam format: [GAMBAR: deskripsi_ilustrasi_{topik}]"
         )
 
-        # 1. Prompt Soal Pilihan Ganda
+        # Aturan bersama diulang di SETIAP section agar model tidak "lupa"
+        # aturan meskipun dokumen dipecah jadi beberapa pemanggilan terpisah.
+        aturan_bersama = (
+            "ATURAN BERSAMA:\n"
+            "1. DILARANG menggunakan simbol LATEX/MATH seperti $ atau \\rightarrow! Gunakan panah biasa (->).\n"
+            "2. DILARANG membuat bagian TANDA TANGAN / MENGETAHUI di akhir teks.\n"
+            "3. Tuliskan HANYA bagian yang diminta; jangan mengulang bagian lain.\n"
+            f"4. {instruksi_gambar}"
+        )
+        aturan_rpp = (
+            "HANYA gunakan istilah '8 Dimensi Profil Lulusan'. "
+            "DILARANG KERAS istilah 'Profil Pelajar Pancasila', 'P3', atau 6 ELEMEN PPP."
+        )
+        ctx_doc = f"Mata Pelajaran: {mapel}. Kelas/Jenjang: {jenjang}. Topik/Materi: {topik}."
+        try:
+            n_soal = int(jumlah or 15)
+        except ValueError:
+            n_soal = 15
+
+        daftar_section = []
+
+        # 1. Section Soal Pilihan Ganda
         if jenis_output in ['Soal Pilihan Ganda (HOTS & LOTS)', 'pg']:
-            prompt = f"""
-Buatkan LEMBAR SOAL UJIAN PILIHAN GANDA Siap Cetak untuk Sekolah Dasar tanpa menyertakan komponen Modul Ajar / RPP (Jangan ada Informasi Umum, CP, TP, atau Kegiatan Pembelajaran).
+            akhir_a = n_soal // 2
+            if n_soal > 15:
+                daftar_section.append((
+                    "soal_pg_keping_1",
+                    (
+                        f"Buat LEMBAR SOAL UJIAN PILIHAN GANDA siap cetak untuk Sekolah Dasar, "
+                        "tanpa komponen Modul Ajar / RPP.\n"
+                        f"{ctx_doc}\n"
+                        "Tuliskan HANYA bagian berikut (JANGAN kunci jawaban):\n"
+                        "1. Header Identitas Siswa (format isian: Nama, Kelas, No. Absen, Tanggal, Nilai/Paraf).\n"
+                        "2. Petunjuk Pengerjaan Soal.\n"
+                        f"3. Naskah soal PILIHAN GANDA nomor 1 s.d. {akhir_a} "
+                        "(tiap soal opsi A,B,C,D; campuran HOTS & LOTS).\n"
+                        f"{aturan_bersama}"
+                    ),
+                    TOKEN_PER_SEKSI,
+                ))
+                daftar_section.append((
+                    "soal_pg_keping_2",
+                    (
+                        f"DOKUMEN: LEMBAR SOAL PILIHAN GANDA. {ctx_doc}\n"
+                        f"Lanjutkan naskah: soal PILIHAN GANDA nomor {akhir_a + 1} s.d. {n_soal} "
+                        "(tiap soal opsi A,B,C,D; campuran HOTS & LOTS; lanjutkan urutan dari konteks).\n"
+                        f"{aturan_bersama}"
+                    ),
+                    TOKEN_PER_SEKSI,
+                ))
+            else:
+                daftar_section.append((
+                    "naskah_soal_pg",
+                    (
+                        f"Buat LEMBAR SOAL UJIAN PILIHAN GANDA siap cetak untuk Sekolah Dasar, "
+                        "tanpa komponen Modul Ajar / RPP.\n"
+                        f"{ctx_doc}\n"
+                        "Tuliskan HANYA bagian berikut (JANGAN kunci jawaban):\n"
+                        "1. Header Identitas Siswa (format isian: Nama, Kelas, No. Absen, Tanggal, Nilai/Paraf).\n"
+                        "2. Petunjuk Pengerjaan Soal.\n"
+                        f"3. Naskah {n_soal} soal PILIHAN GANDA berurutan nomor 1 s.d. {n_soal} "
+                        "(tiap soal opsi A,B,C,D; campuran HOTS & LOTS).\n"
+                        f"{aturan_bersama}"
+                    ),
+                    TOKEN_PER_SEKSI,
+                ))
+            daftar_section.append((
+                "kunci_jawaban",
+                (
+                    f"Tuliskan HANYA bagian KUNCI JAWABAN DAN PEDOMAN PENSKORAN untuk {n_soal} soal "
+                    f"pilihan ganda di konteks. {ctx_doc}\n"
+                    f"Cantumkan nomor 1 s.d. {n_soal} dengan jawaban benar dan penjelasan singkat tiap nomor. "
+                    "DILARANG membuat bagian tanda tangan / mengetahui."
+                ),
+                2048,
+            ))
 
-Detail Dokumen:
-- Mata Pelajaran: {mapel}
-- Kelas / Jenjang: {jenjang}
-- Topik / Materi: {topik}
-
-KETENTUAN WAJIB:
-1. DILARANG MENGGUNAKAN SIMBOL LATEX/MATH SEPERTI $ ATAU \\rightarrow! Gunakan panah biasa (->).
-2. DILARANG MEMBUAT BAGIAN TANDA TANGAN / MENGETAHUI DI AKHIR TEKS.
-3. {instruksi_gambar}
-
-Format Output yang Diinginkan:
-1. Header Identitas Siswa (Format Isian): Nama Siswa, Kelas, No. Absen, Tanggal, dan Nilai/Paraf.
-2. Petunjuk Pengerjaan Soal.
-3. Naskah Soal Pilihan Ganda (Buat {jumlah} soal berurutan nomor 1 sampai selesai, tiap soal opsi A, B, C, D).
-4. Bagian Paling Bawah: KUNCI JAWABAN DAN PEDOMAN PENSKORAN.
-"""
-
-        # 2. Prompt Soal Esai
+        # 2. Section Soal Esai
         elif jenis_output in ['Soal Uraian / Esai', 'esai']:
-            prompt = f"""
-Buatkan LEMBAR SOAL UJIAN URAIAN / ESAI Siap Cetak untuk Sekolah Dasar tanpa menyertakan komponen Modul Ajar / RPP (Jangan ada Informasi Umum, CP, TP, atau Kegiatan Pembelajaran).
+            akhir_a = n_soal // 2
+            if n_soal > 10:
+                daftar_section.append((
+                    "soal_esai_keping_1",
+                    (
+                        f"Buat LEMBAR SOAL UJIAN URAIAN/ESAI siap cetak untuk Sekolah Dasar, "
+                        "tanpa komponen Modul Ajar / RPP.\n"
+                        f"{ctx_doc}\n"
+                        "Tuliskan HANYA bagian berikut (JANGAN kunci jawaban):\n"
+                        "1. Header Identitas Siswa (format isian: Nama, Kelas, No. Absen, Tanggal, Nilai/Paraf).\n"
+                        "2. Petunjuk Pengerjaan Soal Uraian.\n"
+                        f"3. Soal uraian HOTS/LOTS nomor 1 s.d. {akhir_a} yang jelas dan terukur.\n"
+                        f"{aturan_bersama}"
+                    ),
+                    TOKEN_PER_SEKSI,
+                ))
+                daftar_section.append((
+                    "soal_esai_keping_2",
+                    (
+                        f"DOKUMEN: LEMBAR SOAL URAIAN/ESAI. {ctx_doc}\n"
+                        f"Lanjutkan naskah: soal uraian HOTS/LOTS nomor {akhir_a + 1} s.d. {n_soal} "
+                        "yang jelas dan terukur (lanjutkan urutan dari konteks).\n"
+                        f"{aturan_bersama}"
+                    ),
+                    TOKEN_PER_SEKSI,
+                ))
+            else:
+                daftar_section.append((
+                    "naskah_soal_esai",
+                    (
+                        f"Buat LEMBAR SOAL UJIAN URAIAN/ESAI siap cetak untuk Sekolah Dasar, "
+                        "tanpa komponen Modul Ajar / RPP.\n"
+                        f"{ctx_doc}\n"
+                        "Tuliskan HANYA bagian berikut (JANGAN kunci jawaban):\n"
+                        "1. Header Identitas Siswa (format isian: Nama, Kelas, No. Absen, Tanggal, Nilai/Paraf).\n"
+                        "2. Petunjuk Pengerjaan Soal Uraian.\n"
+                        f"3. Naskah {n_soal} soal uraian HOTS/LOTS yang jelas.\n"
+                        f"{aturan_bersama}"
+                    ),
+                    TOKEN_PER_SEKSI,
+                ))
+            daftar_section.append((
+                "kunci_rubrik",
+                (
+                    f"Tuliskan HANYA bagian KUNCI JAWABAN DAN RUBRIK PENILAIAN/PEDOMAN PENSKORAN "
+                    f"untuk {n_soal} soal uraian di konteks. {ctx_doc}\n"
+                    f"Cantumkan jawaban ideal dan rubrik penskoran per soal, nomor 1 s.d. {n_soal}. "
+                    "DILARANG membuat bagian tanda tangan / mengetahui."
+                ),
+                4096,
+            ))
 
-Detail Dokumen:
-- Mata Pelajaran: {mapel}
-- Kelas / Jenjang: {jenjang}
-- Topik / Materi: {topik}
-
-KETENTUAN WAJIB:
-1. DILARANG MENGGUNAKAN SIMBOL LATEX/MATH SEPERTI $ ATAU \\rightarrow! Gunakan panah biasa (->).
-2. DILARANG MEMBUAT BAGIAN TANDA TANGAN / MENGETAHUI DI AKHIR TEKS.
-3. {instruksi_gambar}
-
-Format Output yang Diinginkan:
-1. Header Identitas Siswa (Format Isian): Nama Siswa, Kelas, No. Absen, Tanggal, dan Nilai/Paraf.
-2. Petunjuk Pengerjaan Soal Uraian.
-3. Naskah Soal Uraian (Buat {jumlah} soal uraian HOTS/LOTS yang jelas).
-4. Bagian Paling Bawah: KUNCI JAWABAN DAN RUBRIK PENILAIAN/PEDOMAN PENSKORAN.
-"""
-
-        # 3. Prompt Modul Ajar / RPP
+        # 3. Section Modul Ajar / RPP
         else:
-            prompt_utama = f"Buatkan Modul Ajar / RPP untuk mata pelajaran {mapel} tingkat {jenjang} dengan topik '{topik}'."
-
-            instruksi_template = ""
             if template_type == 'merdeka_ringkas':
-                instruksi_template = " FORMAT DOKUMEN: Buatkan RPP yang singkat, padat, efisien, dan langsung ke inti untuk 1 kali pertemuan."
-            elif template_type == 'deep_learning':
-                instruksi_template = " FORMAT DOKUMEN: Gunakan pendekatan Deep Learning dan integrasikan secara eksplisit '8 Dimensi Profil Lulusan' pada kegiatan pembelajaran."
+                daftar_section.append((
+                    "rpp_merdeka_ringkas",
+                    (
+                        "Kamu adalah guru dan penyusun RPP/Modul Ajar profesional.\n"
+                        f"Buat Modul Ajar / RPP untuk {ctx_doc}.\n"
+                        "FORMAT DOKUMEN: RPP singkat, padat, efisien, dan langsung ke inti "
+                        "untuk 1 kali pertemuan.\n"
+                        "Tuliskan seluruh dokumen: Informasi Umum, Tujuan Pembelajaran, dan Kegiatan "
+                        "Pembelajaran (model & metode BERVARIASI: tidak selalu PBL atau kerja kelompok; "
+                        "boleh Discovery Learning, Direct Instruction, Cooperative Learning, atau "
+                        f"kerja mandiri/perorangan), lalu EVALUASI: TEPAT {n_soal} SOAL + KUNCI JAWABAN "
+                        "LENGKAP + Pedoman Penskoran di bagian akhir.\n"
+                        f"{instruksi_catatan}\n{aturan_rpp}\n{aturan_bersama}"
+                    ),
+                    TOKEN_PER_SEKSI,
+                ))
             elif template_type == 'standar_lengkap':
-                instruksi_template = (
-                    " FORMAT DOKUMEN: Buatkan Modul Ajar lengkap dengan format tabel HTML/Markdown pada bagian kegiatan pembelajaran. "
-                    "Sertakan juga bagian Asesmen lengkap dengan rubrik penilaian (kriteria dan skor), serta draf Lembar Kerja Peserta Didik (LKPD) di bagian lampiran."
-                )
-
-            prompt = (
-                f"Anda adalah seorang guru dan penyusun RPP/Modul Ajar profesional.\n"
-                f"{prompt_utama}\n"
-                f"{instruksi_template}\n"
-                f"{instruksi_catatan}\n"
-                f"KETENTUAN WAJIB:\n"
-                f"1. RPP dirancang khusus untuk 1 (satu) kali pertemuan.\n"
-                f"2. MODEL & METODE PEMBELAJARAN PERLU BERVARIASI:\n"
-                f"   - Jangan selalu menggunakan Problem-Based Learning (PBL) atau kerja kelompok.\n"
-                f"   - Pilih model/metode yang paling relevan dengan materi, bisa menggunakan Discovery Learning, Direct Instruction (Pembelajaran Langsung), Cooperative Learning, atau Kerja Mandiri/Perorangan.\n"
-                f"3. {instruksi_gambar}\n"
-                f"4. HANYA GUNAKAN ISTILAH '8 Dimensi Profil Lulusan'.\n"
-                f"5. DILARANG KERAS MENGGUNAKAN ISTILAH 'Profil Pelajar Pancasila', 'P3', ATAU 6 ELEMEN PPP. Ganti/sesuaikan seluruh komponennya dengan 8 Dimensi Profil Lulusan.\n"
-                f"6. DILARANG MENGGUNAKAN SIMBOL LATEX/MATH SEPERTI $ ATAU \\rightarrow! Gunakan panah biasa (->).\n"
-                f"7. WAJIB ADA BAGIAN EVALUASI DI AKHIR:\n"
-                f"   - Tuliskan TEPAT {jumlah} SOAL EVALUASI lengkap.\n"
-                f"   - Tuliskan KUNCI JAWABAN LENGKAP dan Pedoman Penskoran.\n"
-                f"8. DILARANG MEMBUAT BAGIAN TANDA TANGAN / MENGETAHUI DI AKHIR TEKS.\n"
-            )
+                daftar_section.append((
+                    "info_umum_dan_kegiatan",
+                    (
+                        "Kamu adalah guru dan penyusun RPP/Modul Ajar profesional.\n"
+                        f"Buat Modul Ajar / RPP untuk {ctx_doc}.\n"
+                        "FORMAT DOKUMEN: modul ajar lengkap dengan format tabel HTML/Markdown "
+                        "pada bagian kegiatan pembelajaran, dirancang untuk 1 kali pertemuan.\n"
+                        "Tuliskan HANYA bagian: 1) INFORMASI UMUM (CP, TP, materi, identitas) dan "
+                        "2) KEGIATAN PEMBELAJARAN dalam tabel. Model & metode BERVARIASI: tidak "
+                        "selalu PBL atau kerja kelompok; boleh Discovery Learning, Direct "
+                        "Instruction, Cooperative Learning, atau kerja mandiri/perorangan. "
+                        "Integrasikan '8 Dimensi Profil Lulusan' secara eksplisit.\n"
+                        f"{instruksi_catatan}\n{aturan_rpp}\n{aturan_bersama}"
+                    ),
+                    TOKEN_PER_SEKSI,
+                ))
+                daftar_section.append((
+                    "asesmen_dan_lkpd",
+                    (
+                        f"DOKUMEN: Modul Ajar / RPP yang sama ({ctx_doc}).\n"
+                        "Tuliskan HANYA bagian: 1) ASESMEN lengkap dengan rubrik penilaian "
+                        "(kriteria dan skor) dan 2) draf LEMBAR KERJA PESERTA DIDIK (LKPD) di "
+                        "bagian lampiran. Sesuaikan isi dengan bagian sebelumnya di konteks.\n"
+                        f"{aturan_rpp}\n{aturan_bersama}"
+                    ),
+                    TOKEN_PER_SEKSI,
+                ))
+                daftar_section.append((
+                    "evaluasi",
+                    (
+                        f"DOKUMEN: Modul Ajar / RPP yang sama ({ctx_doc}).\n"
+                        f"Tuliskan HANYA bagian EVALUASI di akhir dokumen: TEPAT {n_soal} SOAL EVALUASI, "
+                        "KUNCI JAWABAN LENGKAP, dan Pedoman Penskoran. Sesuaikan dengan materi dan "
+                        "kegiatan pembelajaran di konteks.\n"
+                        f"{aturan_rpp}\n{aturan_bersama}"
+                    ),
+                    TOKEN_PER_SEKSI,
+                ))
+            else:  # template_type == 'deep_learning' (default)
+                daftar_section.append((
+                    "info_umum_dan_kegiatan",
+                    (
+                        "Kamu adalah guru dan penyusun RPP/Modul Ajar profesional.\n"
+                        f"Buat Modul Ajar / RPP untuk {ctx_doc} dengan pendekatan Deep Learning.\n"
+                        "Tuliskan HANYA bagian: 1) INFORMASI UMUM (CP, TP, materi, identitas) dan "
+                        "2) KEGIATAN PEMBELAJARAN untuk 1 kali pertemuan yang mengintegrasikan "
+                        "secara eksplisit '8 Dimensi Profil Lulusan'. Model & metode BERVARIASI: "
+                        "tidak selalu PBL atau kerja kelompok.\n"
+                        f"{instruksi_catatan}\n{aturan_rpp}\n{aturan_bersama}"
+                    ),
+                    TOKEN_PER_SEKSI,
+                ))
+                daftar_section.append((
+                    "evaluasi",
+                    (
+                        f"DOKUMEN: Modul Ajar / RPP yang sama ({ctx_doc}).\n"
+                        f"Tuliskan HANYA bagian EVALUASI di akhir dokumen: TEPAT {n_soal} SOAL EVALUASI, "
+                        "KUNCI JAWABAN LENGKAP, dan Pedoman Penskoran. Sesuaikan dengan materi dan "
+                        "kegiatan pembelajaran di konteks.\n"
+                        f"{instruksi_catatan}\n{aturan_rpp}\n{aturan_bersama}"
+                    ),
+                    TOKEN_PER_SEKSI,
+                ))
 
         # Minta Respon dari Gemini AI (via Supabase Edge Function)
         try:
             gemini_model = os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
             
-            # Langkah 1: Dapatkan teks dari Gemini melalui Supabase Edge Function
-            hasil = call_gemini_via_supabase(prompt, gemini_model, 0.7, 8192)
+            # Langkah 1: Dapatkan teks per section (anti limit worker Supabase) + retry
+            hasil, peringatan = generate_dokumen_per_section(daftar_section, gemini_model, 0.7)
+            if peringatan:
+                print(peringatan)
 
             # Langkah 2: Generate gambar ilustrasi (gagal tidak membatalkan teks)
             try:
@@ -541,39 +774,66 @@ def kurikulum():
 
         instruksi_catatan = f"\nCatatan Khusus Tambahan: {catatan_opsional}\n" if catatan_opsional.strip() else ""
 
-        prompt = (
-            f"Anda adalah ahli penyusun kurikulum sekolah dasar.\n"
-            f"Buatkan dokumen {jenis_output_kurikulum} untuk mata pelajaran {mapel} tingkat {jenjang} dengan topik '{topik}'.\n"
+        ctx_kurikulum = f"mata pelajaran {mapel} tingkat {jenjang} dengan topik '{topik}'"
+        try:
+            n_soal = int(jumlah or 15)
+        except ValueError:
+            n_soal = 15
+
+        aturan_kurikulum = (
             f"{instruksi_catatan}\n"
-            f"ATURAN WAJIB:\n"
-            f"- Gunakan istilah '8 Dimensi Profil Lulusan'.\n"
-            f"- DILARANG MENGGUNAKAN SIMBOL LATEX/MATH ($). Gunakan simbol teks standar.\n"
-            f"- Wajib menyertakan bagian Evaluasi sebanyak TEPAT {jumlah} SOAL lengkap beserta KUNCI JAWABAN di bagian akhir.\n"
-            f"- Apapun jenis dokumennya (Silabus, CP, ATP, Prota/Promes, RPP, dll.), WAJIB menyertakan lembar pengesahan/tanda tangan di paling akhir dokumen dengan format HTML berikut persis:\n\n"
-            f'<br><br>\n'
-            f'<table style="width: 100%; border: none; margin-top: 30px;">\n'
-            f'    <tr>\n'
-            f'        <td style="width: 50%; border: none; vertical-align: top;">\n'
-            f'            Mengetahui,<br>\n'
-            f'            <b>Kepala SDN Sukamahi 03,</b>\n'
-            f'            <br><br><br><br><br>\n'
-            f'            <b><u>KASWIN KARTAWIJAYA, M.Pd</u></b><br>\n'
-            f'            NIP. 19720506 199903 1 007\n'
-            f'        </td>\n'
-            f'        <td style="width: 50%; border: none; vertical-align: top;">\n'
-            f'            Cikarang Pusat, ______________<br>\n'
-            f'            <b>Wali Kelas / Guru Pengampu,</b>\n'
-            f'            <br><br><br><br><br>\n'
-            f'            (________________________)<br>\n'
-            f'            NIP. \n'
-            f'        </td>\n'
-            f'    </tr>\n'
-            f'</table>'
+            "ATURAN WAJIB:\n"
+            "- Gunakan istilah '8 Dimensi Profil Lulusan'.\n"
+            "- DILARANG menggunakan simbol LATEX/MATH ($). Gunakan simbol teks standar.\n"
+            "- Tuliskan HANYA bagian yang diminta; jangan mengulang bagian lain.\n"
         )
+
+        # Blok pengesahan/tanda tangan — WAJIB ada di paling akhir dokumen.
+        blok_ttd = (
+            '<br><br>\n'
+            '<table style="width: 100%; border: none; margin-top: 30px;">\n'
+            '    <tr>\n'
+            '        <td style="width: 50%; border: none; vertical-align: top;">\n'
+            '            Mengetahui,<br>\n'
+            '            <b>Kepala SDN Sukamahi 03,</b>\n'
+            '            <br><br><br><br><br>\n'
+            '            <b><u>KASWIN KARTAWIJAYA, M.Pd</u></b><br>\n'
+            '            NIP. 19720506 199903 1 007\n'
+            '        </td>\n'
+            '        <td style="width: 50%; border: none; vertical-align: top;">\n'
+            '            Cikarang Pusat, ______________<br>\n'
+            '            <b>Wali Kelas / Guru Pengampu,</b>\n'
+            '            <br><br><br><br><br>\n'
+            '            (________________________)<br>\n'
+            '            NIP. \n'
+            '        </td>\n'
+            '    </tr>\n'
+            '</table>'
+        )
+
+        daftar_section = [
+            ("isi_dokumen_kurikulum",
+             ("Anda adalah ahli penyusun kurikulum sekolah dasar.\n"
+              f"Buat ISI DOKUMEN UTAMA {jenis_output_kurikulum} untuk {ctx_kurikulum}.\n"
+              f"{aturan_kurikulum}"),
+             TOKEN_PER_SEKSI),
+            ("evaluasi_dan_pengesahan",
+             (f"DOKUMEN {jenis_output_kurikulum} untuk {ctx_kurikulum}. "
+              "Apapun jenis dokumennya (Silabus, CP, ATP, Prota/Promes, RPP, dll.), "
+              "tuliskan HANYA bagian akhir dokumen:\n"
+              f"1) EVALUASI: TEPAT {n_soal} SOAL lengkap beserta KUNCI JAWABAN.\n"
+              "2) LEMBAR PENGESAHAN/TANDA TANGAN di paling akhir, dengan format HTML berikut persis:\n"
+              f"{blok_ttd}\n"
+              f"{aturan_kurikulum}"),
+             TOKEN_PER_SEKSI),
+        ]
 
         try:
             gemini_model = os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
-            hasil = call_gemini_via_supabase(prompt, gemini_model, 0.7, 8192)
+            # Generate per section (anti limit worker Supabase) + retry
+            hasil, peringatan = generate_dokumen_per_section(daftar_section, gemini_model, 0.7)
+            if peringatan:
+                print(peringatan)
 
             try:
                 user_uid = g.sesi.get('uid', '') if hasattr(g, 'sesi') and g.sesi else ''
