@@ -409,12 +409,17 @@
     </tr>
     <tr>
         <td>
-            <u><strong>KASWIN KARTAWIJAYA, M.Pd</strong></u><br>
-            NIP. 19720506 199903 1 007
+            <u><strong>{{ sesi.get('nama_kepsek') or 'KASWIN KARTAWIJAYA, M.Pd' }}</strong></u><br>
+            NIP. {{ sesi.get('nip_kepsek') or '19720506 199903 1 007' }}
         </td>
         <td>
+            {% if sesi.get('nama_wali') %}
+            <u><strong>{{ sesi.get('nama_wali') }}</strong></u><br>
+            NIP. {{ sesi.get('nip_wali') or '___________________________' }}
+            {% else %}
             ( ___________________________ )<br>
             NIP.
+            {% endif %}
         </td>
     </tr>
 </table>
@@ -519,16 +524,55 @@ async function exportHTMLToWord() {
     
     var sourceHTML = header + cardHTML + footer;
 
-    // 4. Unduh file .doc via Blob
-    var namaFile = 'RPP_SDN_Sukamahi_03.doc';
-    var blob = new Blob(['\ufeff', sourceHTML], {
-        type: 'application/msword'
-    });
-
+    // 4. Unduh file .doc
     var berhasil = false;
+    var namaTopik = '';
+    var elTopik = document.getElementById('topik');
+    if (elTopik) namaTopik = (elTopik.value || '').trim();
+
+    // A) CARA UTAMA: unduhan attachment via backend /simpan_word.
+    //    Ini mekanisme download standar peramban (seperti unduhan file
+    //    biasa dari website), jadi tidak mudah dibatalkan/blokir.
     try {
+        var fd = new FormData();
+        fd.append('content', sourceHTML);
+        fd.append('topik', namaTopik || 'RPP');
+        var probe = await fetch('/simpan_word', { method: 'POST', body: fd });
+        if (probe.ok) {
+            var form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/simpan_word';
+            form.style.display = 'none';
+            var f1 = document.createElement('input');
+            f1.type = 'hidden';
+            f1.name = 'content';
+            f1.value = sourceHTML;
+            var f2 = document.createElement('input');
+            f2.type = 'hidden';
+            f2.name = 'topik';
+            f2.value = namaTopik || 'RPP';
+            form.appendChild(f1);
+            form.appendChild(f2);
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
+            berhasil = true;
+        } else {
+            console.warn('Unduhan backend ditolak (HTTP ' + probe.status + '), pakai Blob.');
+        }
+    } catch (errNet) {
+        console.warn('Gagal unduh via backend, pakai Blob:', errNet);
+    }
+
+    // B) CADANGAN: unduh Blob di sisi klien
+    if (!berhasil) {
+        var namaFile = 'RPP_' + (namaTopik
+            ? namaTopik.replace(/[^A-Za-z0-9_-]+/g, '_').slice(0, 60)
+            : 'SDN_Sukamahi_03') + '.doc';
+        var blob = new Blob(['\ufeff', sourceHTML], {
+            type: 'application/msword'
+        });
         if (navigator && navigator.msSaveBlob) {
-            // Peramban lama (IE / Edge kuno)
             navigator.msSaveBlob(blob, namaFile);
             berhasil = true;
         } else if (window.URL && URL.createObjectURL) {
@@ -546,12 +590,10 @@ async function exportHTMLToWord() {
             setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
             berhasil = true;
         }
-    } catch (err) {
-        console.error("Gagal membuat unduhan Word:", err);
     }
 
+    // C) CADANGAN AKHIR: buka dokumen di tab baru agar bisa disimpan manual
     if (!berhasil) {
-        // Fallback: buka dokumen di tab baru agar tetap bisa disimpan manual
         var win = window.open('', '_blank');
         if (win) {
             win.document.write(sourceHTML);

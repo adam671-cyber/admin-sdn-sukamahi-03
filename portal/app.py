@@ -318,9 +318,57 @@ def _tandatangan(muatan: str) -> str:
     return hmac.new(flask_secret_key.encode(), muatan.encode(), hashlib.sha256).hexdigest()
 
 
-def buat_cookie_sesi(uid: str, email: str, role: str) -> str:
+def fmt_nip(n) -> str:
+    """Format NIP 18 digit menjadi pola 8-6-1-3 (sama dengan fmtNip di js/absensi.js)."""
+    d = re.sub(r"\D", "", str(n or ""))
+    if len(d) == 18:
+        return f"{d[:8]} {d[8:14]} {d[14]} {d[15:]}"
+    return str(n or "").strip()
+
+
+def ambil_data_ttd(token: str, profil: dict) -> dict:
+    """Ambil nama/NIP Wali Kelas (akun tertaut ke data pegawai) dan Kepala Sekolah
+    dari Supabase REST dengan JWT user (RLS: staf aktif boleh baca tabel guru).
+
+    Dipanggil SEKALI saat SSO (JWT user masih baru) lalu hasilnya disimpan ke
+    kuki sesi, sehingga selama 8 jam sesi portal tidak perlu query Supabase
+    lagi — JWT user berumur ±1 jam, lebih pendek dari umur kuki portal.
+    """
+    data = {"nama_wali": "", "nip_wali": "", "nama_kepsek": "", "nip_kepsek": ""}
+    headers = {"Authorization": f"Bearer {token}", "apikey": SUPABASE_ANON_KEY}
+    guru_id = profil.get("guru_id")
+    if guru_id:
+        r = requests.get(
+            f"{SUPABASE_URL}/rest/v1/guru",
+            params={"id": f"eq.{guru_id}", "select": "nama,nip"},
+            headers=headers, timeout=15,
+        )
+        baris = r.json() if r.ok else []
+        if baris:
+            data["nama_wali"] = str(baris[0].get("nama") or "").strip()
+            data["nip_wali"] = fmt_nip(baris[0].get("nip"))
+    # Kepala sekolah = baris pertama di tabel guru yang jabatannya menyebut
+    # 'kepala' (kriteria yang sama dengan jabatBaku di js/app.js).
+    r = requests.get(
+        f"{SUPABASE_URL}/rest/v1/guru",
+        params={"select": "nama,nip,jabatan"},
+        headers=headers, timeout=15,
+    )
+    for g in (r.json() if r.ok else []):
+        if "kepala" in str(g.get("jabatan") or "").lower():
+            data["nama_kepsek"] = str(g.get("nama") or "").strip()
+            data["nip_kepsek"] = fmt_nip(g.get("nip"))
+            break
+    return data
+
+
+def buat_cookie_sesi(uid: str, email: str, role: str, nama_wali: str = "", nip_wali: str = "",
+                     nama_kepsek: str = "", nip_kepsek: str = "") -> str:
     kedaluwarsa = int(time.time()) + PORTAL_SESI_UMUR
-    muatan = f"{uid}|{kedaluwarsa}|{email}|{role}"
+    # Ganti '|' agar isi field tidak merusak pemisah antar field kuki.
+    bersih = lambda s: str(s or "").replace("|", "/")
+    muatan = (f"{uid}|{kedaluwarsa}|{email}|{role}"
+              f"|{bersih(nama_wali)}|{bersih(nip_wali)}|{bersih(nama_kepsek)}|{bersih(nip_kepsek)}")
     return f"{muatan}|{_tandatangan(muatan)}"
 
 
@@ -329,16 +377,26 @@ def baca_sesi():
     if not nilai:
         return None
     bagian = nilai.split("|")
-    if len(bagian) != 5:
+    # 9 bagian = versi baru (sudah memuat data tanda tangan);
+    # 5 bagian = versi lama (tanpa data ttd), tetap valid sampai kedaluwarsa.
+    if len(bagian) == 9:
+        uid, exp_str, email, role, nama_wali, nip_wali, nama_kepsek, nip_kepsek, tanda = bagian
+    elif len(bagian) == 5:
+        uid, exp_str, email, role, tanda = bagian
+        nama_wali = nip_wali = nama_kepsek = nip_kepsek = ""
+    else:
         return None
-    uid, exp_str, email, role, tanda = bagian
     if not exp_str.isdigit() or int(exp_str) < int(time.time()):
         return None
     if role not in ROLE_PORTAL_DIIZINKAN:
         return None
-    if not secrets.compare_digest(_tandatangan(f"{uid}|{exp_str}|{email}|{role}"), tanda):
+    if not secrets.compare_digest(_tandatangan("|".join(bagian[:-1])), tanda):
         return None
-    return {"uid": uid, "email": email, "role": role}
+    return {
+        "uid": uid, "email": email, "role": role,
+        "nama_wali": nama_wali, "nip_wali": nip_wali,
+        "nama_kepsek": nama_kepsek, "nip_kepsek": nip_kepsek,
+    }
 
 
 def wajib_login(view):
@@ -405,9 +463,11 @@ def sso():
 
             # Pastikan user punya role (admin/guru/pegawai) yang aktif di profiles.
             # RLS "profiles_select_own": setiap akun hanya bisa baca barisnya sendiri.
+            # guru_id ikut diambil: kunci penandaan "Wali Kelas" di dokumen
+            # (profil akun -> baris data pegawai yang dipakai saat menandatangani).
             cek_profil = requests.get(
                 f"{SUPABASE_URL}/rest/v1/profiles",
-                params={"id": f"eq.{uid}", "select": "role,is_active"},
+                params={"id": f"eq.{uid}", "select": "role,is_active,guru_id"},
                 headers={"Authorization": f"Bearer {token}", "apikey": SUPABASE_ANON_KEY},
                 timeout=15,
             )
@@ -426,6 +486,19 @@ def sso():
                 json.dumps({"ok": False, "pesan": "Gagal menghubungi layanan autentikasi. Coba lagi."}),
                 mimetype="application/json", status=502)
 
+        # Data tanda tangan diambil SEKALI di sini karena JWT user masih baru.
+        # Bila gagal, SSO tetap sukses — blok ttd dokumen jatuh ke garis
+        # bawah (ditandatangani manual) lewat nilai default di template.
+        try:
+            data_ttd = ambil_data_ttd(token, profil)
+        except requests.RequestException:
+            data_ttd = {"nama_wali": "", "nip_wali": "", "nama_kepsek": "", "nip_kepsek": ""}
+        nilai_kuki = buat_cookie_sesi(
+            uid, email, role,
+            data_ttd["nama_wali"], data_ttd["nip_wali"],
+            data_ttd["nama_kepsek"], data_ttd["nip_kepsek"],
+        )
+
         produksi = bool(os.getenv("VERCEL"))
         respons = Response(json.dumps({"ok": True}), mimetype="application/json", status=200)
         argumen_kuki = dict(
@@ -436,14 +509,14 @@ def sso():
             # CHIPS: kuki terpartisi + SameSite=None + Secure agar tersimpan
             # dalam konteks iframe pihak ketiga (Vercel -> portal produksi).
             try:
-                respons.set_cookie(PORTAL_SESI_NAMA, buat_cookie_sesi(uid, email, role), partitioned=True, **argumen_kuki)
+                respons.set_cookie(PORTAL_SESI_NAMA, nilai_kuki, partitioned=True, **argumen_kuki)
             except TypeError:
-                respons.set_cookie(PORTAL_SESI_NAMA, buat_cookie_sesi(uid, email, role), **argumen_kuki)
+                respons.set_cookie(PORTAL_SESI_NAMA, nilai_kuki, **argumen_kuki)
         else:
             # Lokal: kuki biasa (Lax, tanpa Partitioned) di loopback.
             # Partisi + Lax ditolak Chrome secara diam-diam di iframe,
             # sehingga kuki tidak pernah kembali ke /dashboard.
-            respons.set_cookie(PORTAL_SESI_NAMA, buat_cookie_sesi(uid, email, role), **argumen_kuki)
+            respons.set_cookie(PORTAL_SESI_NAMA, nilai_kuki, **argumen_kuki)
         return respons
 
     # GET: halaman penukar token fragment -> kuki sesi.
@@ -791,23 +864,40 @@ def kurikulum():
         )
 
         # Blok pengesahan/tanda tangan — WAJIB ada di paling akhir dokumen.
+        # Nama/NIP Kepala Sekolah & Wali Kelas diambil dari data sesi (query
+        # tabel guru Supabase saat SSO, disimpan di kuki). Bila masih kosong,
+        # tetap tampil format garis bawah agar bisa ditandatangani manual.
+        sesi_data = g.sesi if hasattr(g, "sesi") and g.sesi else {}
+        kepsek_nama = sesi_data.get("nama_kepsek") or "KASWIN KARTAWIJAYA, M.Pd"
+        kepsek_nip = sesi_data.get("nip_kepsek") or "19720506 199903 1 007"
+        wali_nama = sesi_data.get("nama_wali") or ""
+        wali_nip = sesi_data.get("nip_wali") or ""
+        if wali_nama:
+            baris_wali = (
+                f"            <b><u>{wali_nama}</u></b><br>\n"
+                f"            NIP. {wali_nip or '___________________________'}\n"
+            )
+        else:
+            baris_wali = (
+                "            (________________________)<br>\n"
+                "            NIP. \n"
+            )
         blok_ttd = (
             '<br><br>\n'
             '<table style="width: 100%; border: none; margin-top: 30px;">\n'
             '    <tr>\n'
             '        <td style="width: 50%; border: none; vertical-align: top;">\n'
             '            Mengetahui,<br>\n'
-            '            <b>Kepala SDN Sukamahi 03,</b>\n'
+            f'            <b>Kepala SDN Sukamahi 03,</b>\n'
             '            <br><br><br><br><br>\n'
-            '            <b><u>KASWIN KARTAWIJAYA, M.Pd</u></b><br>\n'
-            '            NIP. 19720506 199903 1 007\n'
+            f'            <b><u>{kepsek_nama}</u></b><br>\n'
+            f'            NIP. {kepsek_nip}\n'
             '        </td>\n'
             '        <td style="width: 50%; border: none; vertical-align: top;">\n'
             '            Cikarang Pusat, ______________<br>\n'
-            '            <b>Wali Kelas / Guru Pengampu,</b>\n'
+            '            <b>Wali Kelas,</b>\n'
             '            <br><br><br><br><br>\n'
-            '            (________________________)<br>\n'
-            '            NIP. \n'
+            f'{baris_wali}'
             '        </td>\n'
             '    </tr>\n'
             '</table>'
@@ -930,6 +1020,33 @@ def download_word():
             "Content-Disposition": f"attachment;filename=RPP_{topik}.txt",
             "X-Content-Type-Options": "nosniff",
             "Cache-Control": "no-store",
+        }
+    )
+
+@app.route('/simpan_word', methods=['POST'])
+@wajib_login
+def simpan_word():
+    """Unduhan dokumen Word (.doc HTML-kompatibel) via attachment.
+
+    Frontend mengirim HTML hasil penyusunan (kop + RPP + tanda tangan).
+    Route ini meneruskannya sebagai unduhan attachment agar download
+    memakai mekanisme standar peramban (tidak bergantung API Blob).
+    """
+    content = request.form.get('content', '')
+    if not content:
+        return Response("Konten dokumen kosong.", 400)
+    # Sanitasi nama file: hanya huruf/angka/underscore/strip, batasi panjang.
+    topik = re.sub(r'[^A-Za-z0-9_-]+', '_', request.form.get('topik', 'RPP')).strip('_-') or 'RPP'
+    topik = topik[:60]
+    if len(content) > 5_000_000:
+        content = content[:5_000_000]
+    return Response(
+        '\ufeff' + content,
+        mimetype='application/msword',
+        headers={
+            'Content-Disposition': f'attachment; filename="RPP_{topik}.doc"',
+            'X-Content-Type-Options': 'nosniff',
+            'Cache-Control': 'no-store',
         }
     )
 
